@@ -67,7 +67,7 @@ The basic pattern is:
 python run.py --configs <base_config> [<override_config> ...] [flag overrides...]
 ```
 
-* `--configs` can take **one or more** names, each corresponding to a top-level key in `configs.yaml` (e.g., `cartpole_ppo`, `mujoco_ppo_gsde`, `ppo_bpo_zero`, …). 
+* `--configs` can take **one or more** names, each corresponding to a top-level key in `configs.yaml` (e.g., `cartpole_ppo`, `mujoco_ppo_gsde`, `ppo_bpo_zero`, ...). 
 * After config merging, any remaining CLI arguments are parsed as **overrides** (e.g., `--env.env_id ant`, `--run.seed 0`, etc.). 
 
 A minimal PPO run (CartPole preset):
@@ -113,13 +113,13 @@ Common presets:
 * `ppo_bpo_zero1.0_traj` -> `clip_rho=1.0`, `clip_c=1.0`, `clip_traj=True` 
 * `ppo_bpo_zero1.5_traj` -> `clip_rho=1.5`, `clip_c=1.5`, `clip_traj=True` 
 
-So, to run the “rho/c = 1.0/1.0” setting you can do:
+So, to run the "rho/c = 1.0/1.0" setting you can do:
 
 ```bash
 python run.py --configs mujoco_ppo_gsde ppo_bpo_zero1.0 --env.env_id ant --run.seed 0
 ```
 
-### Example (from the paper)
+### Logging and Miscellaneous
 
 **TensorBoard** logging is supported by our implementation and is enabled in the following example:
 
@@ -128,11 +128,25 @@ python run.py \
   --configs mujoco_ppo_gsde ppo_bpo_zero \
   --env.env_id ant \
   --tensorboard True \
-  --logdir "./logdir/mujoco/ant/ppo_gsde_fqe_zero_seed_0" \
+  --logdir "runs/mujoco/ant/ppo_gsde_fqe_zero_seed_0" \
   --seed 0
 ```
 
-You can also override any nested field directly from the command line (after configs are merged). For example, to keep `ppo_bpo_zero` but change the clipping thresholds:
+The TensorBoard logs can be accessed via the command line:
+
+```bash
+tensorboard --logdir runs/mujoco/ant/
+```
+
+The `verbose` flag controls **how much diagnostic information is logged during training**. This affects both **console output** and the **set of metrics written to TensorBoard / logs**. There are **three verbosity levels**, with default set to `0`.
+
+The verbosity level can be changed via a command-line override:
+
+```bash
+--run.verbose <level>
+```
+
+SImilarly, you can also override any nested field directly from the command line (after configs are merged). For example, to keep `ppo_bpo_zero` but change the clipping thresholds:
 
 ```bash
 python run.py --configs mujoco_ppo_gsde ppo_bpo_zero \
@@ -140,6 +154,8 @@ python run.py --configs mujoco_ppo_gsde ppo_bpo_zero \
   --ppo.clip_rho 1.0 --ppo.clip_c 1.0 \
   --run.seed 0
 ```
+
+
 
 ## License
 
