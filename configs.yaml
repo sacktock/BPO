@@ -1,0 +1,242 @@
+defaults:
+
+  bpo: False
+  algo: ppo
+
+  run:
+    seed: 0
+    total_timesteps: 1000000
+    n_envs: 1
+    eval_every: 2048
+    eval_episodes: 10
+    log_every: 2048
+    stats_window_size: 100
+    logdir: runs/
+    device: auto
+    verbose: 0
+
+  env:
+    env_id: cartpole
+    max_episode_steps: 500
+    normalize_obs: False
+    normalize_rew: False
+
+  ppo:
+    
+    n_steps: 2048
+    batch_size: 64
+    n_epochs: 10
+    gamma: 0.99
+    gae_lambda: 0.95
+    clip_range: 0.2
+    clip_decay: none
+    normalize_advantage: True
+    ent_coef: 0.0
+    vf_coef: 0.5
+    replay_size: 8192
+    vf_batch_size: 64
+    mu_batch_size: 64
+    n_vf_epochs: 10
+    n_mu_epochs: 10
+    clip_rho: 1.5
+    clip_c: 1.5
+    clip_traj: False
+    weight_td: False
+    polyak_tau: 0.0
+    n_critics: 1
+    symlog_targets: False
+    symlog_reg_coef: 1.0
+    weight_on_adv: False
+    clip_targets: False
+    clip_actions: False
+    mu_policy_loss: kl_qhat
+    use_sde: False
+    sde_sample_freq: -1
+    use_featurizer: False
+    optimizer: {opt: adam, learning_rate: 3e-4, decay: none, max_grad_norm: 0.5, eps: 1e-5}
+    featurizer_kwargs: {grayscale_obs: True, normalize_images: True, activation_fn: relu, kernel_init: lecun_normal}
+    actor_kwargs: {n_units: 64, log_std_init: 0.0, activation_fn: tanh, kernel_init: lecun_normal}
+    critic_kwargs: {n_units: 64, activation_fn: relu, use_layer_norm: False, kernel_init: lecun_normal}
+    q_vf_kwargs: {n_units: 64, activation_fn: relu, use_layer_norm: False, use_zero_norm_final: False, kernel_init: lecun_normal}
+
+ppo_bpo:
+  bpo: True
+  ppo:
+    clip_rho: 1.5
+    clip_c: 1.5
+    symlog_targets: True
+    polyak_tau: 0.02
+
+ppo_bpo_zero:
+  bpo: True
+  ppo:
+    clip_rho: 1.5
+    clip_c: 1.5
+    symlog_targets: True
+    polyak_tau: 0.02
+    q_vf_kwargs: {use_layer_norm: True, use_zero_norm_final: True, kernel_init: orthogonal}
+
+ppo_bpo_zero1.0:
+  bpo: True
+  ppo:
+    clip_rho: 1.0
+    clip_c: 1.0
+    symlog_targets: True
+    polyak_tau: 0.02
+    q_vf_kwargs: {use_layer_norm: True, use_zero_norm_final: True, kernel_init: orthogonal}
+
+ppo_bpo_zero1.0_1.5:
+  bpo: True
+  ppo:
+    clip_rho: 1.5
+    clip_c: 1.0
+    symlog_targets: True
+    polyak_tau: 0.02
+    q_vf_kwargs: {use_layer_norm: True, use_zero_norm_final: True, kernel_init: orthogonal}
+
+ppo_bpo_zero1.0_1.4:
+  bpo: True
+  ppo:
+    clip_rho: 1.4
+    clip_c: 1.0
+    symlog_targets: True
+    polyak_tau: 0.02
+    q_vf_kwargs: {use_layer_norm: True, use_zero_norm_final: True, kernel_init: orthogonal}
+
+ppo_bpo_zero1.0_traj:
+  bpo: True
+  ppo:
+    clip_rho: 1.0
+    clip_c: 1.0
+    clip_traj: True
+    symlog_targets: True
+    polyak_tau: 0.02
+    q_vf_kwargs: {use_layer_norm: True, use_zero_norm_final: True, kernel_init: orthogonal}
+
+ppo_bpo_zero1.5_traj:
+  bpo: True
+  ppo:
+    clip_rho: 1.5
+    clip_c: 1.5
+    clip_traj: True
+    symlog_targets: True
+    polyak_tau: 0.02
+    q_vf_kwargs: {use_layer_norm: True, use_zero_norm_final: True, kernel_init: orthogonal}
+
+cartpole_ppo:
+  algo: ppo
+  
+  run:
+    total_timesteps: 100000
+    n_envs: 8
+    eval_every: 8192
+    eval_episodes: 10
+    log_every: 8192
+    stats_window_size: 32
+    
+  env:
+    env_id: cartpole
+    max_episode_steps: 500
+
+  ppo:
+    n_steps: 32
+    batch_size: 256
+    n_epochs: 20
+    gae_lambda: 0.8
+    gamma: 0.98
+    clip_range: 0.2
+    clip_decay: linear
+    normalize_advantage: True
+    ent_coef: 0.0
+    vf_coef: 0.5
+    weight_td: True
+    clip_targets: True
+    replay_size: 1024
+    vf_batch_size: 256
+    mu_batch_size: 128
+    n_vf_epochs: 10
+    n_mu_epochs: 10
+    optimizer: {opt: adam, learning_rate: 1e-3, decay: linear, max_grad_norm: 0.5, eps: 1e-5}
+    actor_kwargs: {n_units: 64, log_std_init: 0.0, activation_fn: tanh, kernel_init: lecun_normal}
+    critic_kwargs: {n_units: 64, activation_fn: tanh, kernel_init: lecun_normal}
+    q_vf_kwargs: {n_units: 64, activation_fn: tanh, kernel_init: lecun_normal}
+
+mujoco_ppo:
+  algo: ppo
+  
+  run:
+    total_timesteps: 1500000
+    n_envs: 1
+    eval_every: 8192
+    eval_episodes: 10
+    log_every: 8192
+
+  env:
+    env_id: ant
+    max_episode_steps: 1000
+
+  ppo:
+    n_steps: 2048
+    batch_size: 64
+    n_epochs: 10
+    gamma: 0.99
+    gae_lambda: 0.95
+    clip_range: 0.2
+    clip_decay: none
+    normalize_advantage: True
+    ent_coef: 0.001
+    vf_coef: 0.5
+    weight_td: True
+    clip_targets: True
+    clip_actions: True
+    replay_size: 8192
+    vf_batch_size: 256
+    mu_batch_size: 128
+    n_vf_epochs: 20
+    n_mu_epochs: 20
+    use_sde: False
+    sde_sample_freq: -1
+    optimizer: {opt: adam, learning_rate: 3e-4, decay: none, max_grad_norm: 0.5, eps: 1e-5}
+    actor_kwargs: {n_units: 64, log_std_init: 0.0, activation_fn: relu, kernel_init: orthogonal}
+    critic_kwargs: {n_units: 64, activation_fn: relu, kernel_init: orthogonal}
+    q_vf_kwargs: {n_units: 64, activation_fn: relu, kernel_init: orthogonal}
+    
+mujoco_ppo_gsde:
+  algo: ppo
+
+  run:
+    total_timesteps: 2000000
+    n_envs: 16
+    eval_every: 8192
+    eval_episodes: 10
+    log_every: 8192
+
+  env:
+    env_id: ant
+    max_episode_steps: 1000
+
+  ppo:
+    n_steps: 512
+    batch_size: 128
+    n_epochs: 20
+    gamma: 0.99
+    gae_lambda: 0.9
+    clip_range: 0.4
+    clip_decay: none
+    normalize_advantage: True
+    ent_coef: 0.0
+    vf_coef: 0.5
+    weight_td: False
+    clip_targets: False
+    clip_actions: True
+    replay_size: 8192
+    vf_batch_size: 128
+    mu_batch_size: 128
+    n_vf_epochs: 40
+    n_mu_epochs: 40
+    use_sde: True
+    sde_sample_freq: 4
+    optimizer: {opt: adam, learning_rate: 3e-5, decay: none, max_grad_norm: 0.5, eps: 1e-5}
+    actor_kwargs: {n_units: 256, log_std_init: -1.0, activation_fn: relu, kernel_init: lecun_normal}
+    critic_kwargs: {n_units: 256, activation_fn: relu, kernel_init: lecun_normal}
+    q_vf_kwargs: {n_units: 256, activation_fn: relu, kernel_init: lecun_normal}
