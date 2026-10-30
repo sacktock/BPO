@@ -90,19 +90,17 @@ export MUJOCO_GL=osmesa PYOPENGL_PLATFORM=osmesa
 
 ## How to run BPO
 
-Training is configured from `bpo/configs.yaml`. Named blocks are merged left to right onto `defaults`. Later configs override earlier ones. The console script is available after installation:
+Training is configured from `bpo/configs.yaml`. Named blocks are merged left to right onto `defaults`. Later configs override earlier ones.
+
+After `pip install -e .` (conda or pip), the `bpo` console script is on `PATH`. With uv, pass the same arguments to `uv run bpo`.
 
 ```bash
 bpo --configs cartpole_ppo
 ```
 
-With uv, without activating another environment:
-
 ```bash
 uv run bpo --configs cartpole_ppo
 ```
-
-`python run.py` from the repository root calls the same entry point.
 
 Any key in the loaded config can be overridden from the command line (for example `--env.env_id ant`, `--run.seed 0`).
 
@@ -111,23 +109,35 @@ Any key in the loaded config can be overridden from the command line (for exampl
 The basic pattern is:
 
 ```bash
-python run.py --configs <base_config> [<override_config> ...] [flag overrides...]
+# conda or pip
+bpo --configs <base_config> [<override_config> ...] [flag overrides...]
+
+# uv
+uv run bpo --configs <base_config> [<override_config> ...] [flag overrides...]
 ```
 
-* `--configs` can take **one or more** names, each corresponding to a top-level key in `configs.yaml` (e.g., `cartpole_ppo`, `mujoco_ppo_gsde`, `ppo_bpo_zero`, ...).
+* `--configs` can take **one or more** names, each corresponding to a top-level key in `bpo/configs.yaml` (e.g., `cartpole_ppo`, `mujoco_ppo_gsde`, `ppo_bpo_zero`, ...).
 * After config merging, any remaining CLI arguments are parsed as **overrides** (e.g., `--env.env_id ant`, `--run.seed 0`, etc.).
 
 A minimal PPO run (CartPole preset):
 
 ```bash
-python run.py --configs cartpole_ppo
+# conda or pip
+bpo --configs cartpole_ppo
+
+# uv
+uv run bpo --configs cartpole_ppo
 ```
 
 This uses the `cartpole_ppo` block (timesteps, env, PPO hyperparameters, etc.).
 A MuJoCo PPO run (Ant baseline preset):
 
 ```bash
-python run.py --configs mujoco_ppo --env.env_id ant --run.seed 0 --run.logdir runs/mujoco/ant/ppo_seed_0
+# conda or pip
+bpo --configs mujoco_ppo --env.env_id ant --run.seed 0 --run.logdir runs/mujoco/ant/ppo_seed_0
+
+# uv
+uv run bpo --configs mujoco_ppo --env.env_id ant --run.seed 0 --run.logdir runs/mujoco/ant/ppo_seed_0
 ```
 
 (`mujoco_ppo` sets MuJoCo-style PPO defaults; `--env.env_id` can be changed among `ant`, `half_cheetah`, `hopper`, `walker_2d`.)
@@ -137,14 +147,22 @@ python run.py --configs mujoco_ppo --env.env_id ant --run.seed 0 --run.logdir ru
 **Option A -> flip the flag directly**
 
 ```bash
-python run.py --configs mujoco_ppo_gsde --bpo True --env.env_id ant --run.seed 0
+# conda or pip
+bpo --configs mujoco_ppo_gsde --bpo True --env.env_id ant --run.seed 0
+
+# uv
+uv run bpo --configs mujoco_ppo_gsde --bpo True --env.env_id ant --run.seed 0
 ```
 
 **Option B -> include a BPO config block**
 For example, `ppo_bpo_zero` is a small "add-on" config that sets `bpo: True` and applies BPO-specific settings (e.g., `symlog_targets`, `polyak_tau`, and a zero-norm-final Q-head).
 
 ```bash
-python run.py --configs mujoco_ppo_gsde ppo_bpo_zero --env.env_id ant --run.seed 0
+# conda or pip
+bpo --configs mujoco_ppo_gsde ppo_bpo_zero --env.env_id ant --run.seed 0
+
+# uv
+uv run bpo --configs mujoco_ppo_gsde ppo_bpo_zero --env.env_id ant --run.seed 0
 ```
 
 ### Switching BPO hyperparameter settings
@@ -163,7 +181,11 @@ Common presets:
 So, to run the "rho/c = 1.0/1.0" setting you can do:
 
 ```bash
-python run.py --configs mujoco_ppo_gsde ppo_bpo_zero1.0 --env.env_id ant --run.seed 0
+# conda or pip
+bpo --configs mujoco_ppo_gsde ppo_bpo_zero1.0 --env.env_id ant --run.seed 0
+
+# uv
+uv run bpo --configs mujoco_ppo_gsde ppo_bpo_zero1.0 --env.env_id ant --run.seed 0
 ```
 
 ### Logging and Miscellaneous
@@ -171,7 +193,16 @@ python run.py --configs mujoco_ppo_gsde ppo_bpo_zero1.0 --env.env_id ant --run.s
 **TensorBoard** logging is supported by our implementation and is enabled in the following example:
 
 ```bash
-python run.py \
+# conda or pip
+bpo \
+  --configs mujoco_ppo_gsde ppo_bpo_zero \
+  --env.env_id ant \
+  --tensorboard True \
+  --logdir "runs/mujoco/ant/ppo_gsde_fqe_zero_seed_0" \
+  --seed 0
+
+# uv
+uv run bpo \
   --configs mujoco_ppo_gsde ppo_bpo_zero \
   --env.env_id ant \
   --tensorboard True \
@@ -196,7 +227,14 @@ The verbosity level can be changed via a command-line override:
 Similarly, you can also override any nested field directly from the command line (after configs are merged). For example, to keep `ppo_bpo_zero` but change the clipping thresholds:
 
 ```bash
-python run.py --configs mujoco_ppo_gsde ppo_bpo_zero \
+# conda or pip
+bpo --configs mujoco_ppo_gsde ppo_bpo_zero \
+  --env.env_id ant \
+  --ppo.clip_rho 1.0 --ppo.clip_c 1.0 \
+  --run.seed 0
+
+# uv
+uv run bpo --configs mujoco_ppo_gsde ppo_bpo_zero \
   --env.env_id ant \
   --ppo.clip_rho 1.0 --ppo.clip_c 1.0 \
   --run.seed 0
