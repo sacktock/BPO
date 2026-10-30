@@ -1,8 +1,7 @@
 gymnasium[mujoco]>=1.1.1
-tensorflow==2.17.0
+tensorflow-cpu==2.17.0; sys_platform != 'win32'
+tensorflow-intel==2.17.0; sys_platform == 'win32'
 tensorflow-probability==0.22.1
-tensorstore==0.1.65
-tf-keras==2.17.0
 numpy==1.26.4
 tensorboard>=2.17.1
 tqdm>=4.66.5

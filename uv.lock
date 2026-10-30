@@ -46,10 +46,9 @@ dependencies = [
     { name = "optax" },
     { name = "ruamel-yaml" },
     { name = "tensorboard" },
-    { name = "tensorflow" },
+    { name = "tensorflow-cpu", marker = "sys_platform != 'win32'" },
+    { name = "tensorflow-intel", marker = "sys_platform == 'win32'" },
     { name = "tensorflow-probability" },
-    { name = "tensorstore" },
-    { name = "tf-keras" },
     { name = "tqdm" },
 ]
 
@@ -71,10 +70,9 @@ requires-dist = [
     { name = "optax", specifier = ">=0.1.9" },
     { name = "ruamel-yaml", specifier = ">=0.18.0,<0.20.0" },
     { name = "tensorboard", specifier = ">=2.17.1" },
-    { name = "tensorflow", specifier = "==2.17.0" },
+    { name = "tensorflow-cpu", marker = "sys_platform != 'win32'", specifier = "==2.17.0" },
+    { name = "tensorflow-intel", marker = "sys_platform == 'win32'", specifier = "==2.17.0" },
     { name = "tensorflow-probability", specifier = "==0.22.1" },
-    { name = "tensorstore", specifier = "==0.1.65" },
-    { name = "tf-keras", specifier = "==2.17.0" },
     { name = "tqdm", specifier = ">=4.66.5" },
 ]
 
@@ -1061,7 +1059,39 @@ wheels = [
 ]
 
 [[package]]
-name = "tensorflow"
+name = "tensorflow-cpu"
+version = "2.17.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "absl-py" },
+    { name = "astunparse" },
+    { name = "flatbuffers" },
+    { name = "gast" },
+    { name = "google-pasta" },
+    { name = "grpcio" },
+    { name = "h5py" },
+    { name = "keras" },
+    { name = "libclang" },
+    { name = "ml-dtypes" },
+    { name = "numpy" },
+    { name = "opt-einsum" },
+    { name = "packaging" },
+    { name = "protobuf" },
+    { name = "requests" },
+    { name = "setuptools" },
+    { name = "six" },
+    { name = "tensorboard" },
+    { name = "tensorflow-intel", marker = "python_version < '0'" },
+    { name = "termcolor" },
+    { name = "typing-extensions" },
+    { name = "wrapt" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e9/ff/5a1f8ad41b5049a8bf6318a80e6e7d3bc5f8bbb84fe76bd6b4120ffaff99/tensorflow_cpu-2.17.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:1c8f4d3990321949b9adc4dd1d88371873f9caa421d33ffc5265af052997616c", size = 221357798, upload-time = "2024-07-11T16:49:08.569Z" },
+]
+
+[[package]]
+name = "tensorflow-intel"
 version = "2.17.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
@@ -1088,10 +1118,7 @@ dependencies = [
     { name = "wrapt" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e0/cb/aab1d277dc1cb45166a1ac857bf535ef322437f4f6fbef55ad6dee31e00d/tensorflow-2.17.0-cp312-cp312-macosx_12_0_arm64.whl", hash = "sha256:ee18b4fcd627c5e872eabb25092af6c808b6ec77948662c88fc5c89a60eb0211", size = 236281093, upload-time = "2024-07-11T16:47:22.877Z" },
-    { url = "https://files.pythonhosted.org/packages/e5/db/a365f4bdb6a0067ea9cc0a4b27757e2755627f3ff29dcca4cce3d274662d/tensorflow-2.17.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:72adfef0ee39dd641627906fd7b244fcf21bdd8a87216a998ed74d9c74653aff", size = 224039182, upload-time = "2024-07-11T16:47:32.468Z" },
-    { url = "https://files.pythonhosted.org/packages/d7/24/f7b5c130975303efa4a91341e294fd784b94910c2a4c0f0f0561e5fc7405/tensorflow-2.17.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:0ad7bfea6afb4ded3928ca5b24df9fda876cea4904c103a5163fcc0c3483e7a4", size = 601419499, upload-time = "2024-07-11T16:47:48.447Z" },
-    { url = "https://files.pythonhosted.org/packages/48/a7/2f03f6de3c4976db6d2a898c408feb491ca10399af1f6039d6bef3e6ba6a/tensorflow-2.17.0-cp312-cp312-win_amd64.whl", hash = "sha256:278bc80642d799adf08dc4e04f291aab603bba7457d50c1f9bc191ebbca83f43", size = 2045, upload-time = "2024-07-11T16:52:11.638Z" },
+    { url = "https://files.pythonhosted.org/packages/94/7a/6b83d880b04ca980fe502e5d96620fd6e554dde50c0d916484a1a291bbac/tensorflow_intel-2.17.0-cp312-cp312-win_amd64.whl", hash = "sha256:6a642d9a3d6b839334c6161d88606130e28070009c82fd3e6646c1b5bc94b7a0", size = 385153372, upload-time = "2024-07-11T17:12:33.038Z" },
 ]
 
 [[package]]
@@ -1135,18 +1162,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/46/79/cf31d7a93a8fdc6aa0fbb665be84426a8c5a557d9240b6239e9e11e35fc5/termcolor-3.3.0.tar.gz", hash = "sha256:348871ca648ec6a9a983a13ab626c0acce02f515b9e1983332b17af7979521c5", size = 14434, upload-time = "2025-12-29T12:55:21.882Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/33/d1/8bb87d21e9aeb323cc03034f5eaf2c8f69841e40e4853c2627edf8111ed3/termcolor-3.3.0-py3-none-any.whl", hash = "sha256:cf642efadaf0a8ebbbf4bc7a31cec2f9b5f21a9f726f4ccbb08192c9c26f43a5", size = 7734, upload-time = "2025-12-29T12:55:20.718Z" },
-]
-
-[[package]]
-name = "tf-keras"
-version = "2.17.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "tensorflow" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/dc/2b/d647100a2e80d159b020f1dbc2ef2c6787ed33c914951a63b3c88cd805d0/tf_keras-2.17.0.tar.gz", hash = "sha256:fda97c18da30da0f72a5a7e80f3eee343b09f4c206dad6c57c944fb2cd18560e", size = 1260098, upload-time = "2024-07-15T21:31:01.6Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/21/8b/75f7572ec0273ed8da50bc19defe08aaaafcc15fda3407db53f49acec814/tf_keras-2.17.0-py3-none-any.whl", hash = "sha256:cc97717e4dc08487f327b0740a984043a9e0123c7a4e21206711669d3ec41c88", size = 1724905, upload-time = "2024-07-15T21:30:58.941Z" },
 ]
 
 [[package]]
