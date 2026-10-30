@@ -61,13 +61,13 @@ BPO uses [JAX](https://docs.jax.dev/) for the actor-critic. CPU is enough to smo
 
 #### pip
 
-**Linux x86_64/aarch64** and **Windows WSL2 x86_64**: We strongly recommend using [Ubuntu 22.04](https://apps.microsoft.com/detail/9pn20msr04dw?hl=en-GB&gl=BE) or similar. jax and jaxlib `0.4.30` should already be installed. You need to reinstall [JAX](https://docs.jax.dev/) for your CUDA driver. Do not use the `-U` option here as it may break earlier dependencies.
+**Linux x86_64/aarch64** and **Windows WSL2 x86_64**: We strongly recommend using [Ubuntu 22.04](https://apps.microsoft.com/detail/9pn20msr04dw?hl=en-GB&gl=BE) or similar. jax and jaxlib `0.4.35` should already be installed. You need to reinstall [JAX](https://docs.jax.dev/) for your CUDA driver. Do not use the `-U` option here as it may break earlier dependencies.
 
 ```bash
-pip install "jax[cuda12]"
+pip install "jax[cuda12]==0.4.35"
 ```
 
-CUDA 13 does not ship with this stack. JAX 0.4.30 only publishes a CUDA 12 extra, so CUDA 13 needs a JAX and jaxlib upgrade, which is a later change.
+CUDA 13 does not ship with this stack. JAX 0.4.35 only publishes a CUDA 12 extra, so CUDA 13 needs a JAX and jaxlib upgrade, which is a later change.
 
 #### uv
 
@@ -77,7 +77,7 @@ uv sync --group cuda12
 
 ### Follow-up: native JAX distributions
 
-TensorFlow Probability pins this repository to TensorFlow 2.17, NumPy 1.26, and JAX 0.4.30. Moving to a newer JAX 0.7 stack, with a native JAX distributions implementation in place of TensorFlow Probability, is a follow-up. It does not ship today, so results stay reproducible on the stack used for the paper.
+TensorFlow Probability pins this repository to TensorFlow 2.18, NumPy 1.26, and JAX 0.4.35. Moving to a newer JAX 0.7 stack, with a native JAX distributions implementation in place of TensorFlow Probability, is a follow-up. It does not ship today, so results stay reproducible on the stack used for the paper.
 
 ### Extras
 
