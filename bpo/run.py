@@ -1,13 +1,20 @@
 import warnings
-warnings.filterwarnings("ignore", category=DeprecationWarning) 
-warnings.filterwarnings("ignore", category=UserWarning) 
+
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
 
 import os
 
 from bpo.ppo import PPO
 from bpo.bpo import BPO_PPO
 from bpo.common.configs import Config, Flags
-from bpo.common.wrappers import TimeLimit, RewardMonitor, VecNormWrapper, NormWrapper, VecWrapper
+from bpo.common.wrappers import (
+    TimeLimit,
+    RewardMonitor,
+    VecNormWrapper,
+    NormWrapper,
+    VecWrapper,
+)
 from bpo.common.policies import PPOPolicy, BPOPolicy
 from bpo.common.layers import NatureCNN
 
@@ -22,17 +29,18 @@ import math
 import ruamel.yaml as yaml
 from typing import Dict, Any
 
+
 def make_env(env_id: str, max_episode_steps: int, **kwargs):
     ctor = {
-        'cartpole': 'bpo.envs.cartpole:DiscreteCartpole',
-        'cont_cartpole': 'bpo.envs.cartpole:ContinuousCartpole',
-        'ant': 'bpo.envs.mujoco:Ant',
-        'half_cheetah': 'bpo.envs.mujoco:HalfCheetah',
-        'hopper': 'bpo.envs.mujoco:Hopper',
-        'walker_2d': 'bpo.envs.mujoco:Walker2D',
+        "cartpole": "bpo.envs.cartpole:DiscreteCartpole",
+        "cont_cartpole": "bpo.envs.cartpole:ContinuousCartpole",
+        "ant": "bpo.envs.mujoco:Ant",
+        "half_cheetah": "bpo.envs.mujoco:HalfCheetah",
+        "hopper": "bpo.envs.mujoco:Hopper",
+        "walker_2d": "bpo.envs.mujoco:Walker2D",
     }[env_id]
     if isinstance(ctor, str):
-        module, cls = ctor.split(':')
+        module, cls = ctor.split(":")
         module = importlib.import_module(module)
         ctor = getattr(module, cls)
     env = ctor(**kwargs)
@@ -40,28 +48,26 @@ def make_env(env_id: str, max_episode_steps: int, **kwargs):
     env = RewardMonitor(env)
     return env
 
+
 def make_envs(n_envs: int, env_id: str, max_episode_steps: int, **kwargs):
     ctor = {
-        'cartpole': 'bpo.envs.cartpole:DiscreteCartpole',
-        'cont_cartpole': 'bpo.envs.cartpole:ContinuousCartpole',
-        'ant': 'bpo.envs.mujoco:Ant',
-        'half_cheetah': 'bpo.envs.mujoco:HalfCheetah',
-        'hopper': 'bpo.envs.mujoco:Hopper',
-        'walker_2d': 'bpo.envs.mujoco:Walker2D',
+        "cartpole": "bpo.envs.cartpole:DiscreteCartpole",
+        "cont_cartpole": "bpo.envs.cartpole:ContinuousCartpole",
+        "ant": "bpo.envs.mujoco:Ant",
+        "half_cheetah": "bpo.envs.mujoco:HalfCheetah",
+        "hopper": "bpo.envs.mujoco:Hopper",
+        "walker_2d": "bpo.envs.mujoco:Walker2D",
     }[env_id]
     if isinstance(ctor, str):
-        module, cls = ctor.split(':')
+        module, cls = ctor.split(":")
         module = importlib.import_module(module)
         ctor = getattr(module, cls)
     envs = [
-        RewardMonitor(
-            TimeLimit(
-                ctor(**kwargs), max_episode_steps 
-            )
-        )
+        RewardMonitor(TimeLimit(ctor(**kwargs), max_episode_steps))
         for _ in range(n_envs)
     ]
     return envs
+
 
 def parse_policy_kwargs(config: Config):
 
@@ -74,14 +80,16 @@ def parse_policy_kwargs(config: Config):
         policy_class = BPOPolicy
     else:
         policy_class = PPOPolicy
-        
+
     total_timesteps = config.run.total_timesteps
     n_envs = config.run.n_envs
     n_steps = algo_kwargs.n_steps
 
     if hasattr(algo_kwargs, "clip_range"):
         if hasattr(algo_kwargs, "clip_decay") and algo_kwargs.clip_decay == "linear":
-            clip_schedule = linear_schedule(float(algo_kwargs.clip_range), 0.0, total_timesteps)
+            clip_schedule = linear_schedule(
+                float(algo_kwargs.clip_range), 0.0, total_timesteps
+            )
         else:
             clip_schedule = float(algo_kwargs.clip_range)
     else:
@@ -97,8 +105,11 @@ def parse_policy_kwargs(config: Config):
     else:
         n_epochs = 1
 
-    decay_steps = (n_steps * n_envs // batch_size) * n_epochs \
+    decay_steps = (
+        (n_steps * n_envs // batch_size)
+        * n_epochs
         * math.ceil(total_timesteps / (n_steps * n_envs))
+    )
 
     if algo_kwargs.use_featurizer:
         featurizer_class = NatureCNN
@@ -115,26 +126,25 @@ def parse_policy_kwargs(config: Config):
         kernel_init={
             "lecun_normal": initializers.lecun_normal(),
             "orthogonal": initializers.orthogonal(),
-        }[algo_kwargs.featurizer_kwargs.kernel_init]
+        }[algo_kwargs.featurizer_kwargs.kernel_init],
     )
 
-    optimizer_class = {
-        "adam": optax.adam,
-        "rms_prop": optax.rmsprop
-    }[algo_kwargs.optimizer.opt]
+    optimizer_class = {"adam": optax.adam, "rms_prop": optax.rmsprop}[
+        algo_kwargs.optimizer.opt
+    ]
 
     if algo_kwargs.optimizer.decay == "none":
         lr_schedule = algo_kwargs.optimizer.learning_rate
     elif algo_kwargs.optimizer.decay == "linear":
-        lr_schedule = linear_schedule(algo_kwargs.optimizer.learning_rate, 0.0, decay_steps)
+        lr_schedule = linear_schedule(
+            algo_kwargs.optimizer.learning_rate, 0.0, decay_steps
+        )
     else:
         raise NotImplementedError(algo_kwargs.optimizer.decay)
 
     max_grad_norm = algo_kwargs.optimizer.max_grad_norm
 
-    optimizer_kwargs = dict (
-        eps=algo_kwargs.optimizer.eps
-    )
+    optimizer_kwargs = dict(eps=algo_kwargs.optimizer.eps)
 
     actor_kwargs = dict(
         n_units=algo_kwargs.actor_kwargs.n_units,
@@ -146,7 +156,7 @@ def parse_policy_kwargs(config: Config):
         kernel_init={
             "lecun_normal": initializers.lecun_normal(),
             "orthogonal": initializers.orthogonal(),
-        }[algo_kwargs.actor_kwargs.kernel_init]
+        }[algo_kwargs.actor_kwargs.kernel_init],
     )
 
     critic_kwargs = dict(
@@ -159,7 +169,7 @@ def parse_policy_kwargs(config: Config):
         kernel_init={
             "lecun_normal": initializers.lecun_normal(),
             "orthogonal": initializers.orthogonal(),
-        }[algo_kwargs.critic_kwargs.kernel_init]
+        }[algo_kwargs.critic_kwargs.kernel_init],
     )
 
     q_vf_kwargs = dict(
@@ -173,7 +183,7 @@ def parse_policy_kwargs(config: Config):
         kernel_init={
             "lecun_normal": initializers.lecun_normal(),
             "orthogonal": initializers.orthogonal(),
-        }[algo_kwargs.q_vf_kwargs.kernel_init]
+        }[algo_kwargs.q_vf_kwargs.kernel_init],
     )
 
     policy_kwargs = dict(
@@ -187,24 +197,27 @@ def parse_policy_kwargs(config: Config):
     )
 
     algo_kwargs = {**algo_kwargs}
-    algo_kwargs.update({
-        "learning_rate": lr_schedule,
-        "clip_range": clip_schedule,
-        "max_grad_norm": max_grad_norm,
-        "policy_class": policy_class,
-        "policy_kwargs": policy_kwargs,
-    })
-    
+    algo_kwargs.update(
+        {
+            "learning_rate": lr_schedule,
+            "clip_range": clip_schedule,
+            "max_grad_norm": max_grad_norm,
+            "policy_class": policy_class,
+            "policy_kwargs": policy_kwargs,
+        }
+    )
+
     return algo_kwargs
 
+
 def main(argv=None):
-    parsed, other = Flags(configs=['defaults']).parse_known(argv)
+    parsed, other = Flags(configs=["defaults"]).parse_known(argv)
     # importlib.resources reads the packaged file as UTF-8. The custom Path
     # class only splits on "/", so Path(__file__) misses configs.yaml on Windows.
     configs = yaml.YAML(typ="safe").load(
         resources.files("bpo").joinpath("configs.yaml").read_text(encoding="utf-8")
     )
-    config = Config(configs['defaults'])
+    config = Config(configs["defaults"])
     for name in parsed.configs:
         config = config.update(configs[name])
     config = Flags(config).parse(other)
@@ -217,15 +230,29 @@ def main(argv=None):
         raise NotImplementedError(f"algorithm: {config.algo}")
 
     if config.run.n_envs > 1:
-        envs = make_envs(config.run.n_envs, config.env.env_id, config.env.max_episode_steps)
+        envs = make_envs(
+            config.run.n_envs, config.env.env_id, config.env.max_episode_steps
+        )
         if config.env.normalize_obs or config.env.normalize_rew:
-            env = VecNormWrapper(envs, norm_obs=config.env.normalize_obs, norm_rew=config.env.normalize_rew, training=True, gamma=algo_kwargs.gamma)
+            env = VecNormWrapper(
+                envs,
+                norm_obs=config.env.normalize_obs,
+                norm_rew=config.env.normalize_rew,
+                training=True,
+                gamma=algo_kwargs.gamma,
+            )
         else:
             env = VecWrapper(envs)
     else:
         env = make_env(config.env.env_id, config.env.max_episode_steps)
         if config.env.normalize_obs or config.env.normalize_rew:
-            env = NormWrapper(env, norm_obs=config.env.normalize_obs, norm_rew=config.env.normalize_rew, training=True, gamma=algo_kwargs.gamma)
+            env = NormWrapper(
+                env,
+                norm_obs=config.env.normalize_obs,
+                norm_rew=config.env.normalize_rew,
+                training=True,
+                gamma=algo_kwargs.gamma,
+            )
 
     eval_env = make_env(config.env.env_id, config.env.max_episode_steps)
 
@@ -256,6 +283,7 @@ def main(argv=None):
     )
 
     algo.train(config.run.total_timesteps, **run_kwargs)
+
 
 if __name__ == "__main__":
     main()

@@ -19,6 +19,7 @@ import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
 
+
 class Stats:
     r"""Streaming scalar summary statistics for an arbitrary batch of values.
 
@@ -148,9 +149,13 @@ class Stats:
             RuntimeError: If either object has not observed any data.
         """
         assert isinstance(other, Stats)
-        assert self.prefix == other.prefix, "can't add two Stats objects with different prefixes"
+        assert self.prefix == other.prefix, (
+            "can't add two Stats objects with different prefixes"
+        )
         if self.stats is None or other.stats is None:
-            raise RuntimeError("Cannot add Stats objects before both have been updated at least once.")
+            raise RuntimeError(
+                "Cannot add Stats objects before both have been updated at least once."
+            )
 
         new = Stats(prefix=self.prefix)
         new.n = int(self.n + other.n)
@@ -158,7 +163,8 @@ class Stats:
         w_self = self.n / new.n
         w_other = other.n / new.n
         new.stats = {
-            "mean": float(self.stats["mean"]) * w_self + float(other.stats["mean"]) * w_other,
+            "mean": float(self.stats["mean"]) * w_self
+            + float(other.stats["mean"]) * w_other,
             "mean_squares": float(self.stats["mean_squares"]) * w_self
             + float(other.stats["mean_squares"]) * w_other,
             "max": float(max(float(self.stats["max"]), float(other.stats["max"]))),
@@ -166,6 +172,7 @@ class Stats:
             "mag": float(max(float(self.stats["mag"]), float(other.stats["mag"]))),
         }
         return new
+
 
 class Dist:
     r"""Reservoir-sampled distribution summary.
@@ -254,10 +261,12 @@ class Dist:
             AssertionError: If :attr:`prefix` differs.
         """
         assert isinstance(other, Dist)
-        assert self.prefix == other.prefix, "can't add two Dist objects with different prefixes"
-        assert (
-            self.reservoir_size == other.reservoir_size
-        ), "can't add two Dist objects with different reservoir sizes"
+        assert self.prefix == other.prefix, (
+            "can't add two Dist objects with different prefixes"
+        )
+        assert self.reservoir_size == other.reservoir_size, (
+            "can't add two Dist objects with different reservoir sizes"
+        )
 
         new = Dist(prefix=self.prefix, reservoir_size=self.reservoir_size, rng=0)
         new.n = int(self.n + other.n)
@@ -271,6 +280,7 @@ class Dist:
             )
             new.res = both[idx].astype(np.float32, copy=False)
         return new
+
 
 class BaseLogger:
     r"""Base class for logging scalar statistics and distributions.
@@ -317,7 +327,9 @@ class BaseLogger:
         self.summary_writer: Optional[tf.summary.SummaryWriter] = summary_writer
 
         if self.tensorboard:
-            assert self.summary_writer is not None, "tensorboard=True requires a summary_writer"
+            assert self.summary_writer is not None, (
+                "tensorboard=True requires a summary_writer"
+            )
         if (self.summary_writer is not None) and (not self.tensorboard):
             warnings.warn(
                 "tensorboard is set to False but summary writer is provided; this may produce unexpected behaviour",
@@ -325,7 +337,9 @@ class BaseLogger:
             )
 
         self.stats_window_size: int = int(stats_window_size)
-        self.prefix: str = (prefix if not prefix else (prefix if prefix.endswith("/") else prefix + "/"))
+        self.prefix: str = (
+            prefix if not prefix else (prefix if prefix.endswith("/") else prefix + "/")
+        )
         self.stats: Dict[str, Deque[float]] = {}
 
     def reset(self):
@@ -355,6 +369,7 @@ class BaseLogger:
             NotImplementedError: Always, in the base class.
         """
         raise NotImplementedError
+
 
 class StatsLogger(BaseLogger):
     r"""Logger for streaming scalar stats (:class:`Stats`) and distributions (:class:`Dist`).
@@ -396,7 +411,6 @@ class StatsLogger(BaseLogger):
         self.stats_to_log: Dict[str, float] = {}
         self.dists_to_log: Dict[str, np.ndarray] = {}
 
-
     def reset(self):
         """Clear all buffered scalar and distribution values."""
         super().reset()
@@ -421,7 +435,9 @@ class StatsLogger(BaseLogger):
                     if f"{key}_{k}" in self.stats:
                         self.stats[f"{key}_{k}"].append(float(v))
                     else:
-                        self.stats[f"{key}_{k}"] = deque([float(v)], maxlen=self.stats_window_size)
+                        self.stats[f"{key}_{k}"] = deque(
+                            [float(v)], maxlen=self.stats_window_size
+                        )
             elif isinstance(val, Dist):
                 # Store a snapshot of the reservoir for later histogram logging.
                 self.dists[key] = val.get()
@@ -487,16 +503,20 @@ class StatsLogger(BaseLogger):
         Args:
             step: Global step index (unused; included for API symmetry).
         """
-        stats_to_print = {key: "{0:.4g}".format(val) for key, val in self.stats_to_log.items()}
+        stats_to_print = {
+            key: "{0:.4g}".format(val) for key, val in self.stats_to_log.items()
+        }
         if not stats_to_print:
             return
 
-        max_key_len = max([len(key) for key in stats_to_print] + [max(0, len(self.prefix) - 2)])
+        max_key_len = max(
+            [len(key) for key in stats_to_print] + [max(0, len(self.prefix) - 2)]
+        )
         max_val_len = max([len(val) for val in stats_to_print.values()])
 
         stdout = ""
         max_len = 1 + 4 + max_key_len + 2 + 1 + 2 + max_val_len + 2 + 1
-        stdout += ("-" * max_len + "\n")
+        stdout += "-" * max_len + "\n"
         stdout += (
             "|  "
             + self.prefix
@@ -515,12 +535,13 @@ class StatsLogger(BaseLogger):
                 + " " * (max_val_len - len(val) + 2)
                 + "|\n"
             )
-        stdout += ("-" * max_len + "\n")
+        stdout += "-" * max_len + "\n"
 
         if self.tqdm:
             tqdm.write(stdout)
         else:
             print(stdout)
+
 
 class RolloutLogger(BaseLogger):
     r"""Logger for episodic metrics produced during environment rollouts.
@@ -611,7 +632,7 @@ class RolloutLogger(BaseLogger):
             else:
                 # +1 because we keep the most recent value as "current episode".
                 self.stats[k] = deque([float(v)], maxlen=self.stats_window_size + 1)
-                    
+
     def _create_stats_to_log(self):
         """Compute per-metric mean over *completed* episodes."""
         self.stats_to_log = {}
@@ -619,7 +640,9 @@ class RolloutLogger(BaseLogger):
             if len(val) > 1:
                 # Temporarily drop last (current) value from the mean.
                 last = val.pop()
-                self.stats_to_log[key] = float(np.mean(val)) if len(val) > 0 else float(last)
+                self.stats_to_log[key] = (
+                    float(np.mean(val)) if len(val) > 0 else float(last)
+                )
                 val.append(last)
 
     def _log_to_tensorboard(self, step: int):
@@ -655,12 +678,14 @@ class RolloutLogger(BaseLogger):
         if not stats_to_print:
             return
 
-        max_key_len = max([len(key) for key in stats_to_print] + [max(0, len(self.prefix) - 2)])
+        max_key_len = max(
+            [len(key) for key in stats_to_print] + [max(0, len(self.prefix) - 2)]
+        )
         max_val_len = max([len(val) for val in stats_to_print.values()])
 
         stdout = ""
         max_len = 1 + 4 + max_key_len + 2 + 1 + 2 + max_val_len + 2 + 1
-        stdout += ("-" * max_len + "\n")
+        stdout += "-" * max_len + "\n"
         stdout += (
             "|  "
             + self.prefix
@@ -679,17 +704,9 @@ class RolloutLogger(BaseLogger):
                 + " " * (max_val_len - len(val) + 2)
                 + "|\n"
             )
-        stdout += ("-" * max_len + "\n")
+        stdout += "-" * max_len + "\n"
 
         if self.tqdm:
             tqdm.write(stdout)
         else:
             print(stdout)
-            
-
-            
-
-
-
-            
-

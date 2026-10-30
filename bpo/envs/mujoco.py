@@ -1,11 +1,10 @@
-
 import math
 import gymnasium as gym
 import numpy as np
 from typing import Dict, Any
 
-class MuJoCoEnv(gym.Env):
 
+class MuJoCoEnv(gym.Env):
     def __init__(self, env: gym.Env):
         self._env = env
         self.observation_space = self._env.observation_space
@@ -21,33 +20,26 @@ class MuJoCoEnv(gym.Env):
         assert self.action_space.contains(action), err_msg
         return self._env.step(action)
 
-class Ant(MuJoCoEnv):
 
+class Ant(MuJoCoEnv):
     def __init__(self, **kwargs):
-        env = gym.make('Ant-v5')
+        env = gym.make("Ant-v5")
         super().__init__(env)
+
 
 class HalfCheetah(MuJoCoEnv):
-
     def __init__(self, **kwargs):
-        env = gym.make('HalfCheetah-v5')
+        env = gym.make("HalfCheetah-v5")
         super().__init__(env)
+
 
 class Hopper(MuJoCoEnv):
-
     def __init__(self, **kwargs):
-        env = gym.make('Hopper-v5')
+        env = gym.make("Hopper-v5")
         super().__init__(env)
+
 
 class Walker2D(MuJoCoEnv):
-
     def __init__(self, **kwargs):
-        env = gym.make('Walker2d-v5')
+        env = gym.make("Walker2d-v5")
         super().__init__(env)
-
-        
-
-    
-
-    
-

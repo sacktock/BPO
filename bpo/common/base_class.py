@@ -10,8 +10,8 @@ import tensorflow as tf
 import math
 from tqdm.auto import tqdm
 
-class BaseAlgorithm(ABC):
 
+class BaseAlgorithm(ABC):
     def __init__(
         self,
         env: gym.Env,
@@ -22,7 +22,7 @@ class BaseAlgorithm(ABC):
         verbose: int = 0,
         supported_action_spaces: Optional[tuple[type[spaces.Space], ...]] = None,
         supported_observation_spaces: Optional[tuple[type[spaces.Space], ...]] = None,
-        eval_env: Optional[gym.Env] = None, 
+        eval_env: Optional[gym.Env] = None,
     ):
 
         self.env = env
@@ -33,7 +33,7 @@ class BaseAlgorithm(ABC):
         self.supported_action_spaces = supported_action_spaces
         self.supported_observation_spaces = supported_observation_spaces
         self.eval_env = eval_env
-        
+
         act_sp = getattr(env, "action_space", None)
         obs_sp = getattr(env, "observation_space", None)
 
@@ -42,16 +42,20 @@ class BaseAlgorithm(ABC):
                 f"{self.__class__.__name__}: env is missing action_space/observation_space."
             )
 
-        if self.supported_action_spaces is not None and not isinstance(act_sp, self.supported_action_spaces):
+        if self.supported_action_spaces is not None and not isinstance(
+            act_sp, self.supported_action_spaces
+        ):
             raise TypeError(
-                f"{self.__class__.__name__} does not support action space { type(act_sp).__name__ }.\n"
-                f"Allowed types: { _allowed_names(self.supported_action_spaces) }."
+                f"{self.__class__.__name__} does not support action space {type(act_sp).__name__}.\n"
+                f"Allowed types: {_allowed_names(self.supported_action_spaces)}."
             )
 
-        if self.supported_observation_spaces is not None and not isinstance(obs_sp, self.supported_observation_spaces):
+        if self.supported_observation_spaces is not None and not isinstance(
+            obs_sp, self.supported_observation_spaces
+        ):
             raise TypeError(
-                f"{self.__class__.__name__} does not support observation space { type(obs_sp).__name__ }.\n"
-                f"Allowed types: { _allowed_names(self.supported_observation_spaces) }."
+                f"{self.__class__.__name__} does not support observation space {type(obs_sp).__name__}.\n"
+                f"Allowed types: {_allowed_names(self.supported_observation_spaces)}."
             )
 
         self.observation_space = env.observation_space
@@ -75,28 +79,28 @@ class BaseAlgorithm(ABC):
             summary_writer = None
 
         rollout_logger = RolloutLogger(
-            stdout=True, 
-            tqdm=True, 
-            tensorboard=bool(summary_writer is not None), 
-            summary_writer=summary_writer, 
+            stdout=True,
+            tqdm=True,
+            tensorboard=bool(summary_writer is not None),
+            summary_writer=summary_writer,
             stats_window_size=stats_window_size,
-            prefix="train/rollout"
+            prefix="train/rollout",
         )
         eval_logger = RolloutLogger(
-            stdout=True, 
-            tqdm=True, 
-            tensorboard=bool(summary_writer is not None), 
-            summary_writer=summary_writer, 
+            stdout=True,
+            tqdm=True,
+            tensorboard=bool(summary_writer is not None),
+            summary_writer=summary_writer,
             stats_window_size=num_eval_episodes,
-            prefix="eval/rollout"
+            prefix="eval/rollout",
         )
         stats_logger = StatsLogger(
-            stdout=True, 
-            tqdm=True, 
-            tensorboard=bool(summary_writer is not None), 
-            summary_writer=summary_writer, 
+            stdout=True,
+            tqdm=True,
+            tensorboard=bool(summary_writer is not None),
+            summary_writer=summary_writer,
             stats_window_size=stats_window_size,
-            prefix="train/stats"
+            prefix="train/stats",
         )
 
         total_steps = 0
@@ -112,8 +116,7 @@ class BaseAlgorithm(ABC):
             leave=True,
             dynamic_ncols=True,
         ) as iter_bar:
-
-            for iteration in range(math.ceil((num_frames)/self.train_ratio)):
+            for iteration in range(math.ceil((num_frames) / self.train_ratio)):
                 self.rollout(total_steps, logger=rollout_logger)
                 self.optimize(total_steps, logger=stats_logger)
 
@@ -133,9 +136,7 @@ class BaseAlgorithm(ABC):
     def _get_eval_env(self) -> gym.Env:
         if self.eval_env is not None:
             return self.eval_env
-        raise RuntimeError(
-                "Cannot construct eval env; please pass env_fn or eval_env."
-            )
+        raise RuntimeError("Cannot construct eval env; please pass env_fn or eval_env.")
 
     def optimize(self, step: int, logger: Optional[StatsLogger] = None):
         """Optimizes the policy and other auxilliary models"""
@@ -145,7 +146,12 @@ class BaseAlgorithm(ABC):
         """Collects rollouts/experience for the policy to learn from"""
         raise NotImplementedError
 
-    def eval(self, num_episodes: int, seed: Optional[int] = None, logger: Optional[RolloutLogger] = None) -> List[float]:
+    def eval(
+        self,
+        num_episodes: int,
+        seed: Optional[int] = None,
+        logger: Optional[RolloutLogger] = None,
+    ) -> List[float]:
         eval_env = self._get_eval_env()
         base = 0 if self.seed is None else int(self.seed)
         eval_seed = base + 72 if seed is None else int(seed) + 72
@@ -157,9 +163,8 @@ class BaseAlgorithm(ABC):
             position=1,
             leave=False,
             dynamic_ncols=True,
-            colour="yellow"
+            colour="yellow",
         ) as pbar:
-
             for ep in range(num_episodes):
                 obs, info = self.eval_env.reset(seed=eval_seed + ep)
                 done = False
@@ -188,8 +193,8 @@ class BaseAlgorithm(ABC):
         """How often to do an update step during training"""
         raise NotImplementedError
 
-class BaseJaxPolicy(ABC):
 
+class BaseJaxPolicy(ABC):
     def __init__(
         self,
         observation_space: spaces.Space,
