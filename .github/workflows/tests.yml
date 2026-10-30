@@ -1,0 +1,38 @@
+name: CI
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+    branches:
+      - "**"
+    types: [opened, synchronize, edited, reopened, labeled, ready_for_review]
+jobs:
+  tests:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.12"]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
+      - name: Install the project
+        run: uv sync --group dev
+      - name: Install headless MuJoCo rendering libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libosmesa6 libgl1 libglib2.0-0
+      - name: Run tests
+        run: uv run pytest -v
+        env:
+          # Ubuntu runners have no GPU. OSMesa renders in software. EGL fails
+          # here because libEGL is not installed and PyOpenGL's EGL platform
+          # stays None. Windows uses MuJoCo's default GLFW backend.
+          MUJOCO_GL: ${{ runner.os == 'Linux' && 'osmesa' || '' }}
+          PYOPENGL_PLATFORM: ${{ runner.os == 'Linux' && 'osmesa' || '' }}

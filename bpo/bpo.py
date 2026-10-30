@@ -12,19 +12,19 @@ import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
 from typing import Any, Optional, TypeVar, Union, Callable
-from common.base_class import BaseJaxPolicy
-from common.on_policy_algorithm import OnPolicyAlgorithm
-from common.policies import BPOPolicy
-from common.metrics import StatsLogger, Stats, Dist
-from common.buffers import BPORolloutBuffer, BPOReplayBuffer
-from common.symlog import *
-from ppo import PPO
+from bpo.common.base_class import BaseJaxPolicy
+from bpo.common.on_policy_algorithm import OnPolicyAlgorithm
+from bpo.common.policies import BPOPolicy
+from bpo.common.metrics import StatsLogger, Stats, Dist
+from bpo.common.buffers import BPORolloutBuffer, BPOReplayBuffer
+from bpo.common.symlog import *
+from bpo.ppo import PPO
 from tqdm.auto import tqdm
 
 tfd = tfp.distributions
 
-class BPO_PPO(PPO):
 
+class BPO_PPO(PPO):
     def __init__(
         self,
         env: gym.Env,
@@ -130,15 +130,15 @@ class BPO_PPO(PPO):
             clip_rho=self.clip_rho,
             clip_c=self.clip_c,
             clip_traj=self.clip_traj,
-            weight_on_adv=self.weight_on_adv
+            weight_on_adv=self.weight_on_adv,
         )
 
         self.replay_buffer = BPOReplayBuffer(
-            self.replay_size//self.n_envs,
+            self.replay_size // self.n_envs,
             self.observation_space,
             self.action_space,
             self.n_envs,
-            gamma=self.gamma
+            gamma=self.gamma,
         )
 
         self.replay_buffer.reset()
@@ -148,43 +148,56 @@ class BPO_PPO(PPO):
 
     def _setup_model(self):
         super()._setup_model()
-        self.q_vf = self.policy.q_vf # type: ignore[assignment]
-        self.q_hat_vf = self.policy.q_hat_vf # type: ignore[assignment]
+        self.q_vf = self.policy.q_vf  # type: ignore[assignment]
+        self.q_hat_vf = self.policy.q_hat_vf  # type: ignore[assignment]
 
     @staticmethod
-    @partial(jit, static_argnames=["weight_td", "polyak_tau", "symlog_targets", "clip_targets"])
+    @partial(
+        jit,
+        static_argnames=["weight_td", "polyak_tau", "symlog_targets", "clip_targets"],
+    )
     def _update_q_vf_fqe_disc(
-        key: jax.Array, 
-        featurizer_state: TrainState, 
-        actor_state: TrainState, 
-        q_vf_state: TrainState, 
-        observations: jnp.ndarray, 
-        actions: jnp.ndarray, 
-        rewards: jnp.ndarray, 
-        terminal: jnp.ndarray, 
-        truncated: jnp.ndarray, 
-        next_observations: jnp.ndarray, 
-        mu_log_probs: jnp.ndarray, 
-        gamma: float, 
-        r_max: float, 
-        r_min: float, 
-        symlog_reg_coef: float, 
-        weight_td: bool = False, 
-        polyak_tau: float = 0.0, 
-        symlog_targets: bool = False, 
-        clip_targets: bool = False
+        key: jax.Array,
+        featurizer_state: TrainState,
+        actor_state: TrainState,
+        q_vf_state: TrainState,
+        observations: jnp.ndarray,
+        actions: jnp.ndarray,
+        rewards: jnp.ndarray,
+        terminal: jnp.ndarray,
+        truncated: jnp.ndarray,
+        next_observations: jnp.ndarray,
+        mu_log_probs: jnp.ndarray,
+        gamma: float,
+        r_max: float,
+        r_min: float,
+        symlog_reg_coef: float,
+        weight_td: bool = False,
+        polyak_tau: float = 0.0,
+        symlog_targets: bool = False,
+        clip_targets: bool = False,
     ):
 
         features = featurizer_state.apply_fn(featurizer_state.params, observations)
-        next_features = featurizer_state.apply_fn(featurizer_state.params, next_observations)
+        next_features = featurizer_state.apply_fn(
+            featurizer_state.params, next_observations
+        )
 
         if symlog_targets:
-            target_q_vf_values = jnp.take_along_axis(q_vf_state.apply_fn(q_vf_state.target_params, features), actions.reshape(-1, 1), axis=1).squeeze(-1)
+            target_q_vf_values = jnp.take_along_axis(
+                q_vf_state.apply_fn(q_vf_state.target_params, features),
+                actions.reshape(-1, 1),
+                axis=1,
+            ).squeeze(-1)
 
         def polyak_update(target_params, source_params, tau=0.005):
-            return jax.tree_util.tree_map(lambda t, s: (1 - tau) * t + tau * s, target_params, source_params)
+            return jax.tree_util.tree_map(
+                lambda t, s: (1 - tau) * t + tau * s, target_params, source_params
+            )
 
-        probs = actor_state.apply_fn(actor_state.params, next_features).probs_parameter()
+        probs = actor_state.apply_fn(
+            actor_state.params, next_features
+        ).probs_parameter()
 
         q_vf_values = q_vf_state.apply_fn(q_vf_state.params, next_features)
 
@@ -193,10 +206,16 @@ class BPO_PPO(PPO):
 
         next_q_vf_values = jnp.sum(probs * q_vf_values, axis=-1)
 
-        targets = rewards + gamma * (1.0 - terminal) * next_q_vf_values + gamma * truncated * next_q_vf_values
+        targets = (
+            rewards
+            + gamma * (1.0 - terminal) * next_q_vf_values
+            + gamma * truncated * next_q_vf_values
+        )
 
         if clip_targets:
-            clipped_targets = jnp.clip(targets, r_min / (1 - gamma), r_max / (1 - gamma))
+            clipped_targets = jnp.clip(
+                targets, r_min / (1 - gamma), r_max / (1 - gamma)
+            )
             clipping_ratio = jnp.mean(clipped_targets != targets)
         else:
             clipped_targets = targets
@@ -219,50 +238,69 @@ class BPO_PPO(PPO):
             w_norm = ratios = jnp.ones_like(mu_log_probs)
 
         def fqe_loss(params):
-            q_vf_values = jnp.take_along_axis(q_vf_state.apply_fn(params, features), actions.reshape(-1, 1), axis=1).squeeze(-1)
-            loss = jnp.mean(w_norm * ((clipped_targets - q_vf_values)**2))
+            q_vf_values = jnp.take_along_axis(
+                q_vf_state.apply_fn(params, features), actions.reshape(-1, 1), axis=1
+            ).squeeze(-1)
+            loss = jnp.mean(w_norm * ((clipped_targets - q_vf_values) ** 2))
             if symlog_targets:
-                loss += symlog_reg_coef * jnp.mean(w_norm * ((q_vf_values - target_q_vf_values)**2))
+                loss += symlog_reg_coef * jnp.mean(
+                    w_norm * ((q_vf_values - target_q_vf_values) ** 2)
+                )
             return loss
 
-        q_vf_loss, grads = jax.value_and_grad(fqe_loss, has_aux=False)(q_vf_state.params)
+        q_vf_loss, grads = jax.value_and_grad(fqe_loss, has_aux=False)(
+            q_vf_state.params
+        )
         q_vf_state = q_vf_state.apply_gradients(grads=grads)
 
         if polyak_tau:
-            new_target_params = polyak_update(q_vf_state.target_params, q_vf_state.params, tau=polyak_tau)
+            new_target_params = polyak_update(
+                q_vf_state.target_params, q_vf_state.params, tau=polyak_tau
+            )
             q_vf_state = q_vf_state.replace(target_params=new_target_params)
 
         return q_vf_state, q_vf_loss, ratios, clipping_ratio
 
     @staticmethod
-    @partial(jit, static_argnames=["clip_actions", "weight_td", "polyak_tau", "symlog_targets", "clip_targets"])
+    @partial(
+        jit,
+        static_argnames=[
+            "clip_actions",
+            "weight_td",
+            "polyak_tau",
+            "symlog_targets",
+            "clip_targets",
+        ],
+    )
     def _update_q_vf_fqe_cont(
-        key: jax.Array, 
-        featurizer_state: TrainState, 
-        actor_state: TrainState, 
-        q_vf_state: TrainState, 
-        observations: jnp.ndarray, 
-        actions: jnp.ndarray, 
-        rewards: jnp.ndarray, 
-        terminal: jnp.ndarray, 
-        truncated: jnp.ndarray, 
-        next_observations: jnp.ndarray, 
-        mu_log_probs: jnp.ndarray, 
-        clip_act_low: float, 
-        clip_act_high: float, 
-        gamma: float, 
-        r_max: float, 
-        r_min: float, 
-        symlog_reg_coef: float, 
+        key: jax.Array,
+        featurizer_state: TrainState,
+        actor_state: TrainState,
+        q_vf_state: TrainState,
+        observations: jnp.ndarray,
+        actions: jnp.ndarray,
+        rewards: jnp.ndarray,
+        terminal: jnp.ndarray,
+        truncated: jnp.ndarray,
+        next_observations: jnp.ndarray,
+        mu_log_probs: jnp.ndarray,
+        clip_act_low: float,
+        clip_act_high: float,
+        gamma: float,
+        r_max: float,
+        r_min: float,
+        symlog_reg_coef: float,
         clip_actions: bool = False,
-        weight_td: bool = False, 
-        polyak_tau: float = 0.0, 
-        symlog_targets: bool = False, 
-        clip_targets: bool = False
+        weight_td: bool = False,
+        polyak_tau: float = 0.0,
+        symlog_targets: bool = False,
+        clip_targets: bool = False,
     ):
 
         features = featurizer_state.apply_fn(featurizer_state.params, observations)
-        next_features = featurizer_state.apply_fn(featurizer_state.params, next_observations)
+        next_features = featurizer_state.apply_fn(
+            featurizer_state.params, next_observations
+        )
 
         if clip_actions:
             clipped_actions = jnp.clip(actions, clip_act_low, clip_act_high)
@@ -270,10 +308,14 @@ class BPO_PPO(PPO):
             clipped_actions = actions
 
         if symlog_targets:
-            target_q_vf_values = q_vf_state.apply_fn(q_vf_state.target_params, features, clipped_actions).squeeze(-1)
+            target_q_vf_values = q_vf_state.apply_fn(
+                q_vf_state.target_params, features, clipped_actions
+            ).squeeze(-1)
 
         def polyak_update(target_params, source_params, tau=0.005):
-            return jax.tree_util.tree_map(lambda t, s: (1 - tau) * t + tau * s, target_params, source_params)
+            return jax.tree_util.tree_map(
+                lambda t, s: (1 - tau) * t + tau * s, target_params, source_params
+            )
 
         dist1 = actor_state.apply_fn(actor_state.params, next_features)
         next_actions = dist1.sample(seed=key)
@@ -284,15 +326,25 @@ class BPO_PPO(PPO):
             clipped_next_actions = next_actions
 
         if symlog_targets:
-            next_q_vf_values = q_vf_state.apply_fn(q_vf_state.params, next_features, clipped_next_actions).squeeze(-1)
+            next_q_vf_values = q_vf_state.apply_fn(
+                q_vf_state.params, next_features, clipped_next_actions
+            ).squeeze(-1)
             next_q_vf_values = jsymexp(next_q_vf_values)
         else:
-            next_q_vf_values = q_vf_state.apply_fn(q_vf_state.target_params, next_features, clipped_next_actions).squeeze(-1)
+            next_q_vf_values = q_vf_state.apply_fn(
+                q_vf_state.target_params, next_features, clipped_next_actions
+            ).squeeze(-1)
 
-        targets = rewards + gamma * (1.0 - terminal) * next_q_vf_values + gamma * truncated * next_q_vf_values
+        targets = (
+            rewards
+            + gamma * (1.0 - terminal) * next_q_vf_values
+            + gamma * truncated * next_q_vf_values
+        )
 
         if clip_targets:
-            clipped_targets = jnp.clip(targets, r_min / (1 - gamma), r_max / (1 - gamma))
+            clipped_targets = jnp.clip(
+                targets, r_min / (1 - gamma), r_max / (1 - gamma)
+            )
             clipping_ratio = jnp.mean(clipped_targets != targets)
         else:
             clipped_targets = targets
@@ -313,17 +365,25 @@ class BPO_PPO(PPO):
             w_norm = ratios = jnp.ones_like(mu_log_probs)
 
         def fqe_loss(params):
-            q_vf_values = q_vf_state.apply_fn(params, features, clipped_actions).squeeze(-1)
-            loss = jnp.mean(w_norm * ((clipped_targets - q_vf_values)**2))
+            q_vf_values = q_vf_state.apply_fn(
+                params, features, clipped_actions
+            ).squeeze(-1)
+            loss = jnp.mean(w_norm * ((clipped_targets - q_vf_values) ** 2))
             if symlog_targets:
-                loss += symlog_reg_coef * jnp.mean(w_norm * ((q_vf_values - target_q_vf_values)**2))
+                loss += symlog_reg_coef * jnp.mean(
+                    w_norm * ((q_vf_values - target_q_vf_values) ** 2)
+                )
             return loss
 
-        q_vf_loss, grads = jax.value_and_grad(fqe_loss, has_aux=False)(q_vf_state.params)
+        q_vf_loss, grads = jax.value_and_grad(fqe_loss, has_aux=False)(
+            q_vf_state.params
+        )
         q_vf_state = q_vf_state.apply_gradients(grads=grads)
 
         if polyak_tau:
-            new_target_params = polyak_update(q_vf_state.target_params, q_vf_state.params, tau=polyak_tau)
+            new_target_params = polyak_update(
+                q_vf_state.target_params, q_vf_state.params, tau=polyak_tau
+            )
             q_vf_state = q_vf_state.replace(target_params=new_target_params)
 
         return q_vf_state, q_vf_loss, ratios, clipping_ratio
@@ -336,17 +396,17 @@ class BPO_PPO(PPO):
     @staticmethod
     @partial(jit, static_argnames=["symlog_targets", "clip_targets"])
     def _update_mu_disc(
-        key: jax.Array, 
-        featurizer_state: TrainState, 
-        mu_state: TrainState, 
-        actor_state: TrainState, 
-        q_vf_state: TrainState, 
-        observations: jnp.ndarray, 
-        gamma: float, 
-        r_max: float, 
-        ent_coef: float, 
-        symlog_targets: bool = False, 
-        clip_targets: bool = False
+        key: jax.Array,
+        featurizer_state: TrainState,
+        mu_state: TrainState,
+        actor_state: TrainState,
+        q_vf_state: TrainState,
+        observations: jnp.ndarray,
+        gamma: float,
+        r_max: float,
+        ent_coef: float,
+        symlog_targets: bool = False,
+        clip_targets: bool = False,
     ):
 
         features = featurizer_state.apply_fn(featurizer_state.params, observations)
@@ -355,7 +415,7 @@ class BPO_PPO(PPO):
 
             dist1 = mu_state.apply_fn(params, features)
             entropy = dist1.entropy()
-            
+
             dist2 = actor_state.apply_fn(actor_state.params, features)
             log_pi = jax.nn.log_softmax(dist2.logits_parameter(), axis=-1)
 
@@ -380,27 +440,29 @@ class BPO_PPO(PPO):
             total_policy_loss = policy_loss + ent_coef * entropy_loss
             return total_policy_loss, q_hat_values
 
-        (bhv_loss, q_hat_values), grads = jax.value_and_grad(mu_loss, has_aux=True)(mu_state.params)
+        (bhv_loss, q_hat_values), grads = jax.value_and_grad(mu_loss, has_aux=True)(
+            mu_state.params
+        )
         mu_state = mu_state.apply_gradients(grads=grads)
         return mu_state, bhv_loss, q_hat_values
 
     @staticmethod
-    @partial(jit, static_argnames=[ "mu_policy_loss", "symlog_targets", "clip_targets"])
+    @partial(jit, static_argnames=["mu_policy_loss", "symlog_targets", "clip_targets"])
     def _update_mu_cont(
-        key: jax.Array, 
-        featurizer_state: TrainState, 
-        mu_state: TrainState, 
-        actor_state: TrainState, 
-        q_vf_state: TrainState, 
-        observations: jnp.ndarray, 
-        gamma: float, 
-        r_max: float, 
-        ent_coef: float, 
-        clip_act_low: float, 
-        clip_act_high: float, 
-        mu_policy_loss: str = 'kl_qhat', 
-        symlog_targets: bool = False, 
-        clip_targets: bool = False
+        key: jax.Array,
+        featurizer_state: TrainState,
+        mu_state: TrainState,
+        actor_state: TrainState,
+        q_vf_state: TrainState,
+        observations: jnp.ndarray,
+        gamma: float,
+        r_max: float,
+        ent_coef: float,
+        clip_act_low: float,
+        clip_act_high: float,
+        mu_policy_loss: str = "kl_qhat",
+        symlog_targets: bool = False,
+        clip_targets: bool = False,
     ):
 
         features = featurizer_state.apply_fn(featurizer_state.params, observations)
@@ -416,10 +478,14 @@ class BPO_PPO(PPO):
             entropy = dist1.entropy()
 
             if symlog_targets:
-                q_hat_values = q_vf_state.apply_fn(q_vf_state.params, features, actions).squeeze(-1)
+                q_hat_values = q_vf_state.apply_fn(
+                    q_vf_state.params, features, actions
+                ).squeeze(-1)
                 q_hat_values = jsymexp(q_hat_values)
             else:
-                q_hat_values = q_vf_state.apply_fn(q_vf_state.target_params, features, actions).squeeze(-1)
+                q_hat_values = q_vf_state.apply_fn(
+                    q_vf_state.target_params, features, actions
+                ).squeeze(-1)
 
             if clip_targets:
                 q_hat_values = jnp.clip(q_hat_values, 1e-6, r_max / (1 - gamma))
@@ -428,10 +494,12 @@ class BPO_PPO(PPO):
 
             q_hat_values = jnp.min(q_hat_values, axis=0)
 
-            if mu_policy_loss == 'kl':
+            if mu_policy_loss == "kl":
                 policy_loss = jnp.mean(mu_log_probs - actor_log_probs)
-            elif mu_policy_loss == 'kl_qhat':
-                policy_loss = jnp.mean(mu_log_probs - actor_log_probs - 0.5 * jnp.log(q_hat_values))
+            elif mu_policy_loss == "kl_qhat":
+                policy_loss = jnp.mean(
+                    mu_log_probs - actor_log_probs - 0.5 * jnp.log(q_hat_values)
+                )
             else:
                 raise NotImplementedError
 
@@ -440,15 +508,14 @@ class BPO_PPO(PPO):
             total_policy_loss = policy_loss + ent_coef * entropy_loss
             return total_policy_loss, q_hat_values
 
-        (bhv_loss, q_hat_values), grads = jax.value_and_grad(mu_loss, has_aux=True)(mu_state.params)
+        (bhv_loss, q_hat_values), grads = jax.value_and_grad(mu_loss, has_aux=True)(
+            mu_state.params
+        )
         mu_state = mu_state.apply_gradients(grads=grads)
         return mu_state, bhv_loss, q_hat_values
 
     def optimize(
-        self,
-        step: int, 
-        logger: Optional[StatsLogger] = None,
-        tqdm_position: int = 1
+        self, step: int, logger: Optional[StatsLogger] = None, tqdm_position: int = 1
     ):
 
         ratios_stats = Stats()
@@ -479,26 +546,41 @@ class BPO_PPO(PPO):
         self.key, key1, key2, key3, key4 = jr.split(self.key, 5)
 
         with tqdm(
-            total=self.n_epochs*self.n_steps//(self.batch_size//self.n_envs),
+            total=self.n_epochs * self.n_steps // (self.batch_size // self.n_envs),
             desc="optimize",
             position=tqdm_position,
             leave=False,
             dynamic_ncols=True,
             colour="cyan",
         ) as pbar:
-
             for _ in range(self.n_epochs):
                 key1, subkey = jr.split(key1)
-                for rollout_data in self.rollout_buffer.get(subkey, self.batch_size//self.n_envs):
-
-                    observations, actions, rewards, values, returns, advantages, mu_log_probs, actor_log_probs = rollout_data
+                for rollout_data in self.rollout_buffer.get(
+                    subkey, self.batch_size // self.n_envs
+                ):
+                    (
+                        observations,
+                        actions,
+                        rewards,
+                        values,
+                        returns,
+                        advantages,
+                        mu_log_probs,
+                        actor_log_probs,
+                    ) = rollout_data
 
                     if isinstance(self.action_space, spaces.Discrete):
                         # Convert discrete action from float to int
                         actions = actions.flatten().astype(np.int32)
 
-                    (self.policy.featurizer_state, self.policy.actor_state, self.policy.critic_state), (pg_loss, vf_loss) = \
-                    self._one_update(
+                    (
+                        (
+                            self.policy.featurizer_state,
+                            self.policy.actor_state,
+                            self.policy.critic_state,
+                        ),
+                        (pg_loss, vf_loss),
+                    ) = self._one_update(
                         featurizer_state=self.policy.featurizer_state,
                         actor_state=self.policy.actor_state,
                         critic_state=self.policy.critic_state,
@@ -506,7 +588,9 @@ class BPO_PPO(PPO):
                         actions=actions,
                         advantages=advantages,
                         returns=returns,
-                        old_log_prob=mu_log_probs if not self.weight_on_adv else actor_log_probs,
+                        old_log_prob=mu_log_probs
+                        if not self.weight_on_adv
+                        else actor_log_probs,
                         clip_range=float(clip_range),
                         ent_coef=0.0,
                         vf_coef=self.vf_coef,
@@ -531,11 +615,26 @@ class BPO_PPO(PPO):
 
         for _ in range(self.n_vf_epochs):
             key2, subkey = jr.split(key2)
-            for replay_data in self.replay_buffer.get(subkey, self.vf_batch_size//self.n_envs):
+            for replay_data in self.replay_buffer.get(
+                subkey, self.vf_batch_size // self.n_envs
+            ):
+                (
+                    observations,
+                    actions,
+                    rewards,
+                    _,
+                    terminal,
+                    truncated,
+                    next_observations,
+                    mu_log_probs,
+                ) = replay_data
 
-                observations, actions, rewards, _, terminal, truncated, next_observations, mu_log_probs = replay_data
-
-                assert np.all(np.logical_or(np.logical_not(truncated.astype(np.float32) == 1.0), (terminal.astype(np.float32) == 1.0)))
+                assert np.all(
+                    np.logical_or(
+                        np.logical_not(truncated.astype(np.float32) == 1.0),
+                        (terminal.astype(np.float32) == 1.0),
+                    )
+                )
 
                 if isinstance(self.action_space, spaces.Discrete):
                     # Convert discrete action from float to int
@@ -544,8 +643,12 @@ class BPO_PPO(PPO):
                 key2, subkey = jr.split(key2)
 
                 if isinstance(self.action_space, spaces.Discrete):
-                    self.policy.q_vf_state, q_vf_loss, ratios_2, q_vf_clipping_ratios = \
-                    self._update_q_vf_fqe_disc(
+                    (
+                        self.policy.q_vf_state,
+                        q_vf_loss,
+                        ratios_2,
+                        q_vf_clipping_ratios,
+                    ) = self._update_q_vf_fqe_disc(
                         key=subkey,
                         featurizer_state=self.policy.featurizer_state,
                         actor_state=self.policy.actor_state,
@@ -567,8 +670,12 @@ class BPO_PPO(PPO):
                         clip_targets=self.clip_targets,
                     )
                 elif isinstance(self.action_space, spaces.Box):
-                    self.policy.q_vf_state, q_vf_loss, ratios_2, q_vf_clipping_ratios = \
-                    self._update_q_vf_fqe_cont(
+                    (
+                        self.policy.q_vf_state,
+                        q_vf_loss,
+                        ratios_2,
+                        q_vf_clipping_ratios,
+                    ) = self._update_q_vf_fqe_cont(
                         key=subkey,
                         featurizer_state=self.policy.featurizer_state,
                         actor_state=self.policy.actor_state,
@@ -602,18 +709,17 @@ class BPO_PPO(PPO):
                     ratios_2_dist.update(np.array(ratios_2))
                     q_vf_clipping_ratio_stats.update(np.array(q_vf_clipping_ratios))
 
-            
             if not self.polyak_tau:
                 self.policy.q_vf_state = self._copy_q_vf_params(self.policy.q_vf_state)
 
         q_values, r_hat_rewards = self.replay_buffer.compute_r_hat_rewards(
             self.policy.featurizer_state,
-            self.policy.q_vf_state, 
+            self.policy.q_vf_state,
             clip_actions=self.clip_actions,
             r_max=self.r_max,
             r_min=self.r_min,
-            symlog_targets=self.symlog_targets, 
-            clip_targets=self.clip_targets
+            symlog_targets=self.symlog_targets,
+            clip_targets=self.clip_targets,
         )
 
         if self.verbose > 0:
@@ -624,9 +730,19 @@ class BPO_PPO(PPO):
 
         for _ in range(self.n_vf_epochs):
             key3, subkey = jr.split(key3)
-            for replay_data in self.replay_buffer.get(subkey, self.vf_batch_size//self.n_envs):
-
-                observations, actions, _, r_hat_rewards, terminal, truncated, next_observations, mu_log_probs = replay_data
+            for replay_data in self.replay_buffer.get(
+                subkey, self.vf_batch_size // self.n_envs
+            ):
+                (
+                    observations,
+                    actions,
+                    _,
+                    r_hat_rewards,
+                    terminal,
+                    truncated,
+                    next_observations,
+                    mu_log_probs,
+                ) = replay_data
 
                 if isinstance(self.action_space, spaces.Discrete):
                     # Convert discrete action from float to int
@@ -635,8 +751,12 @@ class BPO_PPO(PPO):
                 key3, subkey = jr.split(key3)
 
                 if isinstance(self.action_space, spaces.Discrete):
-                    self.policy.q_hat_vf_state, q_hat_vf_loss, _, q_hat_vf_clipping_ratios = \
-                    self._update_q_vf_fqe_disc(
+                    (
+                        self.policy.q_hat_vf_state,
+                        q_hat_vf_loss,
+                        _,
+                        q_hat_vf_clipping_ratios,
+                    ) = self._update_q_vf_fqe_disc(
                         key=subkey,
                         featurizer_state=self.policy.featurizer_state,
                         actor_state=self.policy.actor_state,
@@ -658,8 +778,12 @@ class BPO_PPO(PPO):
                         clip_targets=self.clip_targets,
                     )
                 elif isinstance(self.action_space, spaces.Box):
-                    self.policy.q_hat_vf_state, q_hat_vf_loss, _, q_hat_vf_clipping_ratios = \
-                    self._update_q_vf_fqe_cont(
+                    (
+                        self.policy.q_hat_vf_state,
+                        q_hat_vf_loss,
+                        _,
+                        q_hat_vf_clipping_ratios,
+                    ) = self._update_q_vf_fqe_cont(
                         key=subkey,
                         featurizer_state=self.policy.featurizer_state,
                         actor_state=self.policy.actor_state,
@@ -688,23 +812,26 @@ class BPO_PPO(PPO):
 
                 if self.verbose > 0:
                     q_hat_vf_loss_stats.update(float(q_hat_vf_loss))
-                    q_hat_vf_clipping_ratio_stats.update(np.array(q_hat_vf_clipping_ratios))
-
+                    q_hat_vf_clipping_ratio_stats.update(
+                        np.array(q_hat_vf_clipping_ratios)
+                    )
 
             if not self.polyak_tau:
-                self.policy.q_hat_vf_state = self._copy_q_vf_params(self.policy.q_hat_vf_state)
+                self.policy.q_hat_vf_state = self._copy_q_vf_params(
+                    self.policy.q_hat_vf_state
+                )
 
         for _ in range(self.n_mu_epochs):
             key4, subkey = jr.split(key4)
-            for replay_data in self.replay_buffer.get(subkey, self.mu_batch_size//self.n_envs):
-
+            for replay_data in self.replay_buffer.get(
+                subkey, self.mu_batch_size // self.n_envs
+            ):
                 observations, _, _, _, _, _, _, _ = replay_data
 
                 key4, subkey = jr.split(key4)
 
                 if isinstance(self.action_space, spaces.Discrete):
-                    self.policy.mu_state, mu_loss, q_hat_values = \
-                    self._update_mu_disc(
+                    self.policy.mu_state, mu_loss, q_hat_values = self._update_mu_disc(
                         key=subkey,
                         featurizer_state=self.policy.featurizer_state,
                         mu_state=self.policy.mu_state,
@@ -718,8 +845,7 @@ class BPO_PPO(PPO):
                         clip_targets=self.clip_targets,
                     )
                 elif isinstance(self.action_space, spaces.Box):
-                    self.policy.mu_state, mu_loss, q_hat_values = \
-                    self._update_mu_cont(
+                    self.policy.mu_state, mu_loss, q_hat_values = self._update_mu_cont(
                         key=subkey,
                         featurizer_state=self.policy.featurizer_state,
                         mu_state=self.policy.mu_state,
@@ -793,7 +919,7 @@ class BPO_PPO(PPO):
             logger.add(logs)
 
     def rollout(
-        self, 
+        self,
         step: int,
         logger: Optional[RolloutLogger] = None,
         tqdm_position: int = 1,
@@ -816,27 +942,35 @@ class BPO_PPO(PPO):
                 dynamic_ncols=True,
                 colour="green",
             )
-            if self.use_tqdm_rollout else nullcontext()
+            if self.use_tqdm_rollout
+            else nullcontext()
         )
 
         with pbar_context as pbar:
             while steps < self.n_steps:
-
-                if self.use_sde and self.sde_sample_freq > 0 and steps % self.sde_sample_freq == 0:
+                if (
+                    self.use_sde
+                    and self.sde_sample_freq > 0
+                    and steps % self.sde_sample_freq == 0
+                ):
                     self.policy.reset_noise()
 
                 if not self.use_sde or isinstance(self.action_space, spaces.Discrete):
                     self.policy.reset_noise()
 
                 obs = self.prepare_obs(self._last_obs, n_envs=self.n_envs)
-                actions, mu_log_probs, actor_log_probs, values = self.policy.predict_all(self.policy.noise_key, obs)
+                actions, mu_log_probs, actor_log_probs, values = (
+                    self.policy.predict_all(self.policy.noise_key, obs)
+                )
 
                 actions = np.array(actions)
                 mu_log_probs = np.array(mu_log_probs)
                 actor_log_probs = np.array(actor_log_probs)
                 values = np.array(values)
 
-                new_obs, rewards, terminated, truncated, infos = self.env.step(self.prepare_act(actions, n_envs=self.n_envs))
+                new_obs, rewards, terminated, truncated, infos = self.env.step(
+                    self.prepare_act(actions, n_envs=self.n_envs)
+                )
 
                 new_obs = np.array(new_obs)
                 rewards = np.array(rewards)
@@ -845,7 +979,7 @@ class BPO_PPO(PPO):
                 self.r_min = min(self.r_min, np.min(rewards))
 
                 steps += 1
-                
+
                 if self.use_tqdm_rollout:
                     pbar.update(1)
 
@@ -854,14 +988,16 @@ class BPO_PPO(PPO):
                     actions = np.array(actions)
                     actions = actions.reshape(-1, 1)
 
-                dones = np.array([False]*self.n_envs)
+                dones = np.array([False] * self.n_envs)
 
                 bootstrap_rewards = rewards.copy()
 
                 for idx, info in enumerate(infos):
                     if truncated[idx]:
                         truncated_obs = new_obs[idx].reshape(1, -1)
-                        feats = self.featurizer.apply(self.policy.featurizer_state.params, truncated_obs)
+                        feats = self.featurizer.apply(
+                            self.policy.featurizer_state.params, truncated_obs
+                        )
                         terminal_value = np.array(
                             self.critic.apply(
                                 self.policy.critic_state.params,
@@ -889,7 +1025,7 @@ class BPO_PPO(PPO):
                 self.replay_buffer.add(
                     self._last_obs,
                     actions,
-                    rewards, # don't use bootstrapped rewards here we want to use the q functions to bootstrap
+                    rewards,  # don't use bootstrapped rewards here we want to use the q functions to bootstrap
                     dones,
                     truncated,
                     next_obs,
@@ -908,8 +1044,8 @@ class BPO_PPO(PPO):
                 if logger:
                     for info in infos:
                         logger.add(info)
-        
-        assert isinstance(self._last_obs, np.ndarray) 
+
+        assert isinstance(self._last_obs, np.ndarray)
         final_obs = self.prepare_obs(self._last_obs, n_envs=self.n_envs)
         feats = self.featurizer.apply(self.policy.featurizer_state.params, final_obs)
         last_value = np.array(
@@ -919,11 +1055,10 @@ class BPO_PPO(PPO):
             ).flatten()
         )
 
-        self.rollout_buffer.compute_returns_and_advantages(last_value=last_value, done=self._last_episode_start)
+        self.rollout_buffer.compute_returns_and_advantages(
+            last_value=last_value, done=self._last_episode_start
+        )
 
     @property
     def train_ratio(self):
         return self.n_steps * self.n_envs
-
-
-

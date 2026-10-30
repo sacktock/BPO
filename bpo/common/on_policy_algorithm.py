@@ -9,21 +9,30 @@ from flax.training.train_state import TrainState
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
-from common.base_class import BaseAlgorithm, BaseJaxPolicy
+from bpo.common.base_class import BaseAlgorithm, BaseJaxPolicy
 from tqdm import tqdm
 from typing import Any, Optional, TypeVar, Union, Callable
-from common.wrappers import DummyVecWrapper, VecEnvWrapperBase, NormWrapper, VecNormWrapper, OneHotObsWrapper, FlattenDictObsWrapper, is_wrapped
-from common.buffers import RolloutBuffer
-from common.policies import PPOPolicy
-from common.metrics import RolloutLogger
+from bpo.common.wrappers import (
+    DummyVecWrapper,
+    VecEnvWrapperBase,
+    NormWrapper,
+    VecNormWrapper,
+    OneHotObsWrapper,
+    FlattenDictObsWrapper,
+    is_wrapped,
+)
+from bpo.common.buffers import RolloutBuffer
+from bpo.common.policies import PPOPolicy
+from bpo.common.metrics import RolloutLogger
 from tqdm.auto import tqdm
+
 
 @contextmanager
 def nullcontext(arg=None):
     yield arg
 
-class OnPolicyAlgorithm(BaseAlgorithm):
 
+class OnPolicyAlgorithm(BaseAlgorithm):
     def __init__(
         self,
         env: gym.Env,
@@ -32,7 +41,7 @@ class OnPolicyAlgorithm(BaseAlgorithm):
         monitor: bool = True,
         device: str = "auto",
         verbose: int = 0,
-        eval_env: Optional[gym.Env] = None, 
+        eval_env: Optional[gym.Env] = None,
         use_tqdm_rollout: bool = False,
         learning_rate: Union[float, optax.Schedule] = 3e-4,
         n_steps: int = 16,
@@ -57,7 +66,12 @@ class OnPolicyAlgorithm(BaseAlgorithm):
             monitor=monitor,
             device=device,
             verbose=verbose,
-            supported_action_spaces=(spaces.Discrete, spaces.Box, spaces.MultiBinary, spaces.MultiDiscrete),
+            supported_action_spaces=(
+                spaces.Discrete,
+                spaces.Box,
+                spaces.MultiBinary,
+                spaces.MultiDiscrete,
+            ),
             supported_observation_spaces=(spaces.Box),
             eval_env=eval_env,
         )
@@ -70,7 +84,9 @@ class OnPolicyAlgorithm(BaseAlgorithm):
         if isinstance(learning_rate, float):
             self.lr_schedule = optax.schedules.constant_schedule(learning_rate)
         else:
-            assert callable(learning_rate), f"learning_rate for class PPO must be float or optax.Schedule not {type(learning_rate)}"
+            assert callable(learning_rate), (
+                f"learning_rate for class PPO must be float or optax.Schedule not {type(learning_rate)}"
+            )
             self.lr_schedule = learning_rate
 
         self.use_tqdm_rollout = use_tqdm_rollout
@@ -92,35 +108,37 @@ class OnPolicyAlgorithm(BaseAlgorithm):
 
     def _setup_buffer(self):
         self.rollout_buffer = RolloutBuffer(
-            self.n_steps, 
-            self.observation_space, 
-            self.action_space, 
+            self.n_steps,
+            self.observation_space,
+            self.action_space,
             self.n_envs,
             gamma=self.gamma,
-            gae_lambda=self.gae_lambda
+            gae_lambda=self.gae_lambda,
         )
 
     def _setup_model(self):
         if not hasattr(self, "policy") or self.policy is None:
             self.policy = self.policy_class(
-                self.observation_space,
-                self.action_space,
-                **self.policy_kwargs
+                self.observation_space, self.action_space, **self.policy_kwargs
             )
 
             self.key = self.policy.build(self.key, self.lr_schedule, self.max_grad_norm)
 
-            self.featurizer = self.policy.featurizer # type: ignore[assignment]
+            self.featurizer = self.policy.featurizer  # type: ignore[assignment]
             self.actor = self.policy.actor  # type: ignore[assignment]
             self.critic = self.policy.critic  # type: ignore[assignment]
 
     def _wrap_env(self, env: gym.Env) -> gym.Env:
 
         if is_wrapped(env, VecEnvWrapperBase):
-            assert is_wrapped(env, OneHotObsWrapper) or not isinstance(env.observation_space, spaces.Discrete), \
-            "Before wrapping your environment in a DummyVecWrapper / VecWrapper, please wrap your environment in a OneHotObsWrapper if it has type(observation_space)__name__ = Discrete"
-            assert not isinstance(env.observation_space, spaces.Dict), \
-            "Before wrapping your environment in a DummyVecWrapper / VecWrapper, please wrap your environment in a FlattenDictObsWrapper if it has type(observation_space)__name__ = Dict"
+            assert is_wrapped(env, OneHotObsWrapper) or not isinstance(
+                env.observation_space, spaces.Discrete
+            ), (
+                "Before wrapping your environment in a DummyVecWrapper / VecWrapper, please wrap your environment in a OneHotObsWrapper if it has type(observation_space)__name__ = Discrete"
+            )
+            assert not isinstance(env.observation_space, spaces.Dict), (
+                "Before wrapping your environment in a DummyVecWrapper / VecWrapper, please wrap your environment in a FlattenDictObsWrapper if it has type(observation_space)__name__ = Dict"
+            )
 
         if isinstance(env.observation_space, (spaces.Dict, spaces.Discrete)):
             if not is_wrapped(env, OneHotObsWrapper):
@@ -128,7 +146,9 @@ class OnPolicyAlgorithm(BaseAlgorithm):
             if isinstance(env.observation_space, spaces.Dict):
                 env = FlattenDictObsWrapper(env)
 
-        if not isinstance(env, VecEnvWrapperBase) and not is_wrapped(env, VecEnvWrapperBase):
+        if not isinstance(env, VecEnvWrapperBase) and not is_wrapped(
+            env, VecEnvWrapperBase
+        ):
             env = DummyVecWrapper(env)
 
         return env
@@ -148,18 +168,17 @@ class OnPolicyAlgorithm(BaseAlgorithm):
                 self._eval_env = FlattenDictObsWrapper(self._eval_env)
 
         if is_wrapped(self.env, (VecNormWrapper, NormWrapper)):
-
             if not isinstance(self._eval_env, NormWrapper):
                 self._eval_env = NormWrapper(
-                        env=self._eval_env,  # already VecEnvWrapperBase
-                        norm_obs=self.env.norm_obs,
-                        norm_rew=self.env.norm_rew,
-                        training=False,  # important: do not update stats during eval
-                        clip_obs=self.env.clip_obs,
-                        clip_rew=self.env.clip_rew,
-                        gamma=self.env.gamma,
-                        eps=self.env.eps,
-                    )
+                    env=self._eval_env,  # already VecEnvWrapperBase
+                    norm_obs=self.env.norm_obs,
+                    norm_rew=self.env.norm_rew,
+                    training=False,  # important: do not update stats during eval
+                    clip_obs=self.env.clip_obs,
+                    clip_rew=self.env.clip_rew,
+                    gamma=self.env.gamma,
+                    eps=self.env.eps,
+                )
             else:
                 self._eval_env.training = False
 
@@ -171,11 +190,11 @@ class OnPolicyAlgorithm(BaseAlgorithm):
         return self._eval_env
 
     def train(self, *args, **kwargs):
-        self._last_episode_start = [True]*self.n_envs
+        self._last_episode_start = [True] * self.n_envs
         super().train(*args, **kwargs)
 
     def rollout(
-        self, 
+        self,
         step: int,
         logger: Optional[RolloutLogger] = None,
         tqdm_position: int = 1,
@@ -197,32 +216,40 @@ class OnPolicyAlgorithm(BaseAlgorithm):
                 dynamic_ncols=True,
                 colour="green",
             )
-            if self.use_tqdm_rollout else nullcontext()
+            if self.use_tqdm_rollout
+            else nullcontext()
         )
 
         with pbar_context as pbar:
             while steps < self.n_steps:
-
-                if self.use_sde and self.sde_sample_freq > 0 and steps % self.sde_sample_freq == 0:
+                if (
+                    self.use_sde
+                    and self.sde_sample_freq > 0
+                    and steps % self.sde_sample_freq == 0
+                ):
                     self.policy.reset_noise()
 
                 if not self.use_sde or isinstance(self.action_space, spaces.Discrete):
                     self.policy.reset_noise()
 
                 obs = self.prepare_obs(self._last_obs, n_envs=self.n_envs)
-                actions, log_probs, values = self.policy.predict_all(self.policy.noise_key, obs)
+                actions, log_probs, values = self.policy.predict_all(
+                    self.policy.noise_key, obs
+                )
 
                 actions = np.array(actions)
                 log_probs = np.array(log_probs)
                 values = np.array(values)
 
-                new_obs, rewards, terminated, truncated, infos = self.env.step(self.prepare_act(actions, n_envs=self.n_envs))
+                new_obs, rewards, terminated, truncated, infos = self.env.step(
+                    self.prepare_act(actions, n_envs=self.n_envs)
+                )
 
                 new_obs = np.array(new_obs)
                 rewards = np.array(rewards)
 
                 steps += 1
-                
+
                 if self.use_tqdm_rollout:
                     pbar.update(1)
 
@@ -231,12 +258,14 @@ class OnPolicyAlgorithm(BaseAlgorithm):
                     actions = np.array(actions)
                     actions = actions.reshape(-1, 1)
 
-                dones = np.array([False]*self.n_envs)
+                dones = np.array([False] * self.n_envs)
 
                 for idx, info in enumerate(infos):
                     if truncated[idx]:
                         truncated_obs = new_obs[idx].reshape(1, -1)
-                        feats = self.featurizer.apply(self.policy.featurizer_state.params, truncated_obs)
+                        feats = self.featurizer.apply(
+                            self.policy.featurizer_state.params, truncated_obs
+                        )
                         terminal_value = np.array(
                             self.critic.apply(
                                 self.policy.critic_state.params,
@@ -270,7 +299,7 @@ class OnPolicyAlgorithm(BaseAlgorithm):
                     for info in infos:
                         logger.add(info)
 
-        assert isinstance(self._last_obs, np.ndarray) 
+        assert isinstance(self._last_obs, np.ndarray)
         final_obs = self.prepare_obs(self._last_obs, n_envs=self.n_envs)
         feats = self.featurizer.apply(self.policy.featurizer_state.params, final_obs)
         last_value = np.array(
@@ -280,16 +309,22 @@ class OnPolicyAlgorithm(BaseAlgorithm):
             ).flatten()
         )
 
-        self.rollout_buffer.compute_returns_and_advantages(last_value=last_value, done=self._last_episode_start)
+        self.rollout_buffer.compute_returns_and_advantages(
+            last_value=last_value, done=self._last_episode_start
+        )
 
-    def act(self, key: jax.Array, obs: np.ndarray, deterministic: bool = False) -> Union[int, np.ndarray]:
+    def act(
+        self, key: jax.Array, obs: np.ndarray, deterministic: bool = False
+    ) -> Union[int, np.ndarray]:
         obs = self.prepare_obs(obs, n_envs=1)
         action = self.policy.forward(key, obs, deterministic=deterministic)
         return self.prepare_act(action, n_envs=1)
 
     def prepare_act(self, act: np.ndarray, n_envs: int = 1) -> Union[int, np.ndarray]:
         if isinstance(self.action_space, spaces.Box):
-            act = np.clip(act, self.action_space.low, self.action_space.high, dtype=np.float32)
+            act = np.clip(
+                act, self.action_space.low, self.action_space.high, dtype=np.float32
+            )
             act = act.reshape(n_envs, *self.action_space.shape)
             if n_envs == 1:
                 act = np.squeeze(act, axis=0)
@@ -310,12 +345,11 @@ class OnPolicyAlgorithm(BaseAlgorithm):
             if n_envs == 1:
                 act = act[0]
         else:
-            raise NotImplementedError(f"Unexpected action space {type(self.action_space).__name__}")
+            raise NotImplementedError(
+                f"Unexpected action space {type(self.action_space).__name__}"
+            )
         return act
 
     def prepare_obs(self, obs: np.ndarray, n_envs: int = 1) -> np.ndarray:
         obs = np.array(obs)
         return obs.reshape(n_envs, *self.observation_space.shape)
-    
-
-

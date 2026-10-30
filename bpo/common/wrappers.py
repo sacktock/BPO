@@ -1,7 +1,7 @@
 from __future__ import annotations
 import gymnasium as gym
 from gymnasium import spaces
-from common.running_mean_std import RunningMeanStd
+from bpo.common.running_mean_std import RunningMeanStd
 import numpy as np
 
 
@@ -48,6 +48,7 @@ def is_wrapped(env: gym.Env, wrapper_class: gym.Wrapper) -> bool:
 
         return False
 
+
 def get_wrapped(env: gym.Env, wrapper_class: gym.Wrapper) -> gym.Env:
     r"""
     Return the first wrapper instance of type ``wrapper_class`` found in ``env``'s
@@ -84,6 +85,7 @@ def get_wrapped(env: gym.Env, wrapper_class: gym.Wrapper) -> gym.Env:
             continue
 
         return None
+
 
 class ObsWrapper(gym.Wrapper):
     """
@@ -144,6 +146,7 @@ class ObsWrapper(gym.Wrapper):
         obs, rew, term, trunc, info = self.env.step(action)
         return self._get_obs(obs), rew, term, trunc, info
 
+
 class TimeLimit(gym.Wrapper):
     """
     Episode time-limit wrapper compatible with constraint persistence.
@@ -198,6 +201,7 @@ class TimeLimit(gym.Wrapper):
         """
         self._elapsed_steps = 0
         return self.env.reset(**kwargs)
+
 
 class RewardMonitor(gym.Wrapper):
     """
@@ -256,7 +260,7 @@ class RewardMonitor(gym.Wrapper):
         if terminated or truncated:
             info["metrics"]["episode"] = self._episode_metrics()
         return observation, reward, terminated, truncated, info
-        
+
     def _episode_metrics(self):
         """
         Compute episode-level reward metrics.
@@ -268,6 +272,7 @@ class RewardMonitor(gym.Wrapper):
             * ``"ep_length"``: episode length in steps.
         """
         return {"ep_reward": self.total_reward, "ep_length": self.total_steps}
+
 
 class NormWrapper(gym.Wrapper):
     """
@@ -305,23 +310,23 @@ class NormWrapper(gym.Wrapper):
     """
 
     def __init__(
-        self, 
-        env: gym.Env, 
+        self,
+        env: gym.Env,
         norm_obs: bool = True,
         norm_rew: bool = True,
         training: bool = True,
         clip_obs: float = 10.0,
         clip_rew: float = 10.0,
         gamma: float = 0.99,
-        eps: float = 1e-8
+        eps: float = 1e-8,
     ):
-        assert not isinstance(
-            env, VecEnvWrapperBase
-        ), "NormWrapper does not expect a vectorized environment (DummyVecWrapper / VecWrapper). Please use VecNormWrapper instead"
+        assert not isinstance(env, VecEnvWrapperBase), (
+            "NormWrapper does not expect a vectorized environment (DummyVecWrapper / VecWrapper). Please use VecNormWrapper instead"
+        )
 
-        assert norm_obs and isinstance(
-            env.observation_space, spaces.Box
-        ), "NormWrapper only supports Box observation spaces when norm_obs=True."
+        assert norm_obs and isinstance(env.observation_space, spaces.Box), (
+            "NormWrapper only supports Box observation spaces when norm_obs=True."
+        )
 
         super().__init__(env)
 
@@ -351,7 +356,7 @@ class NormWrapper(gym.Wrapper):
         return np.clip(
             (obs - self.obs_rms.mean) / np.sqrt(self.obs_rms.var + self.eps),
             -self.clip_obs,
-            self.clip_obs
+            self.clip_obs,
         )
 
     def _normalize_rew(self, rew: float) -> float:
@@ -422,6 +427,7 @@ class NormWrapper(gym.Wrapper):
 
         return obs, rew, term, trunc, info
 
+
 class OneHotObsWrapper(ObsWrapper):
     """
     One-hot encode :class:`gymnasium.spaces.Discrete` observations.
@@ -457,7 +463,6 @@ class OneHotObsWrapper(ObsWrapper):
                 shape=(n,),
                 dtype=np.float32,
             )
-            
 
         elif isinstance(self._orig_obs_space, spaces.Dict):
             self._mode = "dict"
@@ -532,9 +537,10 @@ class OneHotObsWrapper(ObsWrapper):
                     new_obs[key] = value
 
             return new_obs
-        else: 
+        else:
             # pass
             return obs
+
 
 class FlattenDictObsWrapper(ObsWrapper):
     """
@@ -633,8 +639,8 @@ class FlattenDictObsWrapper(ObsWrapper):
             this implementation currently enforces Box-only subspaces at runtime.
         """
         assert isinstance(obs, dict), (
-                f"Expected dict observation for Dict space, got {type(obs)}"
-            )
+            f"Expected dict observation for Dict space, got {type(obs)}"
+        )
 
         parts = []
         for key in sorted(self._orig_obs_space.spaces.keys()):
@@ -651,6 +657,7 @@ class FlattenDictObsWrapper(ObsWrapper):
             parts.append(arr)
 
         return np.concatenate(parts, axis=0).astype(np.float32)
+
 
 class VecEnvWrapperBase(gym.Wrapper):
     """
@@ -681,11 +688,11 @@ class VecEnvWrapperBase(gym.Wrapper):
         super().__init__(env)
 
     def reset_done(
-        self, 
+        self,
         dones: Union[List[bool], np.ndarray],
-        *, 
-        seed: int | None = None, 
-        options: Dict[str, Any] | None = None
+        *,
+        seed: int | None = None,
+        options: Dict[str, Any] | None = None,
     ):
         """
         Reset only the environments indicated by ``dones``.
@@ -708,6 +715,7 @@ class VecEnvWrapperBase(gym.Wrapper):
             NotImplementedError: If not implemented by a subclass.
         """
         raise NotImplementedError
+
 
 class DummyVecWrapper(VecEnvWrapperBase):
     """
@@ -744,11 +752,11 @@ class DummyVecWrapper(VecEnvWrapperBase):
         return [obs], [info]
 
     def reset_done(
-        self, 
+        self,
         dones: Union[List[bool], np.ndarray],
-        *, 
-        seed: int | None = None, 
-        options: Dict[str, Any] | None = None
+        *,
+        seed: int | None = None,
+        options: Dict[str, Any] | None = None,
     ):
         """
         Conditionally reset the single environment.
@@ -782,6 +790,7 @@ class DummyVecWrapper(VecEnvWrapperBase):
         obs, rew, term, trunc, info = self.env.step(action)
         return [obs], [rew], [term], [trunc], [info]
 
+
 class VecWrapper(VecEnvWrapperBase):
     """
     Wrap a list of environments with a simple vector-environment API.
@@ -799,7 +808,7 @@ class VecWrapper(VecEnvWrapperBase):
 
     def __init__(self, envs: List[gym.Env]):
         assert len(envs) > 0, "VecWrapper requires at least one environment"
-        super().__init__(envs[0]) # maintain API compatibility
+        super().__init__(envs[0])  # maintain API compatibility
         self.envs: List[gym.Env] = envs
         self.n_envs = len(envs)
 
@@ -823,11 +832,11 @@ class VecWrapper(VecEnvWrapperBase):
         return obs_list, info_list
 
     def reset_done(
-        self, 
+        self,
         dones: Union[List[bool], np.ndarray],
-        *, 
-        seed: int | None = None, 
-        options: Dict[str, Any] | None = None
+        *,
+        seed: int | None = None,
+        options: Dict[str, Any] | None = None,
     ):
         """
         Reset only environments whose done flag is True.
@@ -881,6 +890,7 @@ class VecWrapper(VecEnvWrapperBase):
 
         return obs_list, rew_list, term_list, trunc_list, info_list
 
+
 class VecNormWrapper(VecEnvWrapperBase):
     """
     Normalize observations and/or rewards for a vectorized environment.
@@ -911,23 +921,23 @@ class VecNormWrapper(VecEnvWrapperBase):
     """
 
     def __init__(
-        self, 
-        env: Union[gym.Env, List[gym.Env]], 
+        self,
+        env: Union[gym.Env, List[gym.Env]],
         norm_obs: bool = True,
         norm_rew: bool = True,
         training: bool = True,
         clip_obs: float = 10.0,
         clip_rew: float = 10.0,
         gamma: float = 0.99,
-        eps: float = 1e-8
+        eps: float = 1e-8,
     ):
-        assert isinstance(
-            env, VecEnvWrapperBase
-        ), "VecNormWrapper expects a vectorized environment (DummyVecWrapper / VecWrapper)."
+        assert isinstance(env, VecEnvWrapperBase), (
+            "VecNormWrapper expects a vectorized environment (DummyVecWrapper / VecWrapper)."
+        )
 
-        assert norm_obs and isinstance(
-            env.observation_space, spaces.Box
-        ), "VecNormWrapper only supports Box observation spaces when norm_obs=True."
+        assert norm_obs and isinstance(env.observation_space, spaces.Box), (
+            "VecNormWrapper only supports Box observation spaces when norm_obs=True."
+        )
 
         super().__init__(env)
 
@@ -999,11 +1009,11 @@ class VecNormWrapper(VecEnvWrapperBase):
         return obs_list, info_list
 
     def reset_done(
-        self, 
+        self,
         dones: Union[List[bool], np.ndarray],
-        *, 
-        seed: int | None = None, 
-        options: Dict[str, Any] | None = None
+        *,
+        seed: int | None = None,
+        options: Dict[str, Any] | None = None,
     ):
         """
         Reset only environments indicated by ``dones`` and normalize those observations.
@@ -1018,14 +1028,16 @@ class VecNormWrapper(VecEnvWrapperBase):
             :meth:`VecEnvWrapperBase.reset_done`, with reset observations optionally
             normalized.
         """
-        reset_obs, reset_infos = self.env.reset_done(
-            dones, seed=seed, options=options
-        )
+        reset_obs, reset_infos = self.env.reset_done(dones, seed=seed, options=options)
 
-        obs_arr = np.asarray(
-            [o for o in reset_obs if o is not None],
-            dtype=np.float32,
-        ) if any(o is not None for o in reset_obs) else None
+        obs_arr = (
+            np.asarray(
+                [o for o in reset_obs if o is not None],
+                dtype=np.float32,
+            )
+            if any(o is not None for o in reset_obs)
+            else None
+        )
 
         if self.norm_obs and self.training and obs_arr is not None:
             self.obs_rms.update(obs_arr)
@@ -1040,7 +1052,9 @@ class VecNormWrapper(VecEnvWrapperBase):
             for i, done in enumerate(dones):
                 if done and reset_obs[i] is not None:
                     o = np.asarray(reset_obs[i], dtype=np.float32)
-                    norm = (o - self.obs_rms.mean) / np.sqrt(self.obs_rms.var + self.eps)
+                    norm = (o - self.obs_rms.mean) / np.sqrt(
+                        self.obs_rms.var + self.eps
+                    )
                     norm = np.clip(norm, -self.clip_obs, self.clip_obs)
                     norm_reset_obs[i] = norm
             reset_obs = norm_reset_obs
