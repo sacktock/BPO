@@ -1,7 +1,7 @@
 from __future__ import annotations
 import gymnasium as gym
 from gymnasium import spaces
-from common.running_mean_std import RunningMeanStd
+from bpo.common.running_mean_std import RunningMeanStd
 import numpy as np
 
 

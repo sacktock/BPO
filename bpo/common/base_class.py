@@ -1,10 +1,10 @@
 from __future__ import annotations
 from typing import Any, Optional, TypeVar, Union, List, Callable
-from common.wrappers import NormWrapper
+from bpo.common.wrappers import NormWrapper
 from gymnasium import spaces
 import gymnasium as gym
 import jax.random as jr
-from common.metrics import RolloutLogger, StatsLogger
+from bpo.common.metrics import RolloutLogger, StatsLogger
 from abc import ABC, abstractmethod
 import tensorflow as tf
 import math

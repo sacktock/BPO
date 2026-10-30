@@ -4,58 +4,107 @@ The repository provide the official implementation of **Behaviour Policy Optimiz
 
 > **Behaviour Policy Optimization: Provably Lower Variance Return Estimates for Off-Policy Reinforcement Learning**
 > Alexander W. Goodall, Edwin Hamel-De le Court, Francesco Belardinelli
-> arXiv: [https://arxiv.org/abs/2511.10843](https://arxiv.org/abs/2511.10843) 
+> arXiv: [https://arxiv.org/abs/2511.10843](https://arxiv.org/abs/2511.10843)
 
 *Disclaimer:* This implementation is simplified from the full version used to collect the results provided in the paper.
+
+## Software stack
+
+Training runs the actor-critic on CPU or CUDA GPUs with [JAX](https://docs.jax.dev/), uses [TensorFlow](https://www.tensorflow.org/) and [TensorFlow Probability](https://www.tensorflow.org/probability) for action distributions and TensorBoard, and steps through the environments with [Gymnasium](https://gymnasium.farama.org/).
 
 ## Quick Start
 
 ### Installation
 
-#### Prequisites
+#### Prerequisites
 
-Python 3.10 is required.
+Python 3.12 is required.
 
-#### Installation with conda 
+#### Installation with conda
+
 - Install conda, e.g., via [anaconda](https://anaconda.org/channels/anaconda/packages/conda/overview).
 - Clone the repo:
+
 ```bash
 git clone https://github.com/sacktock/BPO.git
 cd BPO
 ```
+
 - Create a conda virtual environment:
+
 ```bash
 conda env create --name bpo --file conda-environment.yaml
 conda activate bpo
 ```
+
 - Install the project and its dependencies:
+
 ```bash
-pip install -r requirements.txt
+pip install -e .
 ```
 
-### Check the installation is working
+> `pip install -e .` installs the dependencies declared in `pyproject.toml`. `requirements.txt` lists the same base dependencies and is kept in lockstep with that file.
 
+#### Installation with uv
+
+From the repository root, `uv sync` installs the base dependency set (CPU JAX):
+
+```bash
+uv sync
 ```
-python run.py --configs cartpole_ppo
-```
 
-### Enabling GPU Acceleration with JAX (Optional)
+### Enabling GPU acceleration with JAX (optional)
 
-Our implementation relies on [JAX](https://docs.jax.dev/) for GPU acceleration, which can be enabled for Linux or WSL sub systems. 
+BPO uses [JAX](https://docs.jax.dev/) for the actor-critic. CPU is enough to smoke test the environments and run a short training job.
 
-- **Linux x86_64/aarch64**: jax and jaxlib `0.4.30` should already be installed via the `requirements.txt`. You need to reinstall JAX based on your cuda driver compatibility. Do not use the ```-U``` option here!
+**macOS and Windows:** we recommend JAX with CPU. No further action is required if you correctly followed the earlier steps.
+
+#### pip
+
+**Linux x86_64/aarch64** and **Windows WSL2 x86_64**: We strongly recommend using [Ubuntu 22.04](https://apps.microsoft.com/detail/9pn20msr04dw?hl=en-GB&gl=BE) or similar. jax and jaxlib `0.4.30` should already be installed. You need to reinstall [JAX](https://docs.jax.dev/) for your CUDA driver. Do not use the `-U` option here as it may break earlier dependencies.
+
 ```bash
 pip install "jax[cuda12]"
 ```
-For `13+` cuda versions you may need to upgrade the jax and jaxlib installation. 
 
-- **Windows**: GPU acceletartion is also supported (experimentally) on Windows WSL x86_64. We strongly recommend using [Ubuntu 22.04](https://apps.microsoft.com/detail/9pn20msr04dw?hl=en-GB&gl=BE) or similar. Follow the **Linux x86_64/aarch64** instructions above. 
+CUDA 13 does not ship with this stack. JAX 0.4.30 only publishes a CUDA 12 extra, so CUDA 13 needs a JAX and jaxlib upgrade, which is a later change.
 
-- **MAC**: we recommend JAX with CPU. No further action is required if you correctly followed the earlier steps.
+#### uv
 
-## Reproducing our Results
+```bash
+uv sync --group cuda12
+```
 
-All experiments are launched from the command line via `run.py`. Under the hood, `run.py` loads **named configuration blocks** from `configs.yaml` and merges them **left -> right** in the order you pass them to `--configs`. Later configs override earlier ones.  
+### Follow-up: native JAX distributions
+
+TensorFlow Probability pins this repository to TensorFlow 2.17, NumPy 1.26, and JAX 0.4.30. Moving to a newer JAX 0.7 stack, with a native JAX distributions implementation in place of TensorFlow Probability, is a follow-up. It does not ship today, so results stay reproducible on the stack used for the paper.
+
+### Extras
+
+MuJoCo (used by Ant, HalfCheetah, Hopper, and Walker2d) is installed through the `gymnasium[mujoco]` extra. On a headless Linux machine (CI job), also install OSMesa and select it, or those environments fail while importing the renderer:
+
+```bash
+sudo apt-get install -y libosmesa6 libgl1 libglib2.0-0
+export MUJOCO_GL=osmesa PYOPENGL_PLATFORM=osmesa
+```
+
+## How to run BPO
+
+Training is configured from `bpo/configs.yaml`. Named blocks are merged left to right onto `defaults`. Later configs override earlier ones. The console script is available after installation:
+
+```bash
+bpo --configs cartpole_ppo
+```
+
+With uv, without activating another environment:
+
+```bash
+uv run bpo --configs cartpole_ppo
+```
+
+`python run.py` from the repository root calls the same entry point.
+
+Any key in the loaded config can be overridden from the command line (for example `--env.env_id ant`, `--run.seed 0`).
 
 ### Running experiments
 
@@ -65,8 +114,8 @@ The basic pattern is:
 python run.py --configs <base_config> [<override_config> ...] [flag overrides...]
 ```
 
-* `--configs` can take **one or more** names, each corresponding to a top-level key in `configs.yaml` (e.g., `cartpole_ppo`, `mujoco_ppo_gsde`, `ppo_bpo_zero`, ...). 
-* After config merging, any remaining CLI arguments are parsed as **overrides** (e.g., `--env.env_id ant`, `--run.seed 0`, etc.). 
+* `--configs` can take **one or more** names, each corresponding to a top-level key in `configs.yaml` (e.g., `cartpole_ppo`, `mujoco_ppo_gsde`, `ppo_bpo_zero`, ...).
+* After config merging, any remaining CLI arguments are parsed as **overrides** (e.g., `--env.env_id ant`, `--run.seed 0`, etc.).
 
 A minimal PPO run (CartPole preset):
 
@@ -74,14 +123,14 @@ A minimal PPO run (CartPole preset):
 python run.py --configs cartpole_ppo
 ```
 
-This uses the `cartpole_ppo` block (timesteps, env, PPO hyperparameters, etc.). 
+This uses the `cartpole_ppo` block (timesteps, env, PPO hyperparameters, etc.).
 A MuJoCo PPO run (Ant baseline preset):
 
 ```bash
 python run.py --configs mujoco_ppo --env.env_id ant --run.seed 0 --run.logdir runs/mujoco/ant/ppo_seed_0
 ```
 
-(`mujoco_ppo` sets MuJoCo-style PPO defaults; `--env.env_id` can be changed among `ant`, `half_cheetah`, `hopper`, `walker_2d`.)  
+(`mujoco_ppo` sets MuJoCo-style PPO defaults; `--env.env_id` can be changed among `ant`, `half_cheetah`, `hopper`, `walker_2d`.)
 
 ### Enabling BPO
 
@@ -92,7 +141,7 @@ python run.py --configs mujoco_ppo_gsde --bpo True --env.env_id ant --run.seed 0
 ```
 
 **Option B -> include a BPO config block**
-For example, `ppo_bpo_zero` is a small "add-on" config that sets `bpo: True` and applies BPO-specific settings (e.g., `symlog_targets`, `polyak_tau`, and a zero-norm-final Q-head). 
+For example, `ppo_bpo_zero` is a small "add-on" config that sets `bpo: True` and applies BPO-specific settings (e.g., `symlog_targets`, `polyak_tau`, and a zero-norm-final Q-head).
 
 ```bash
 python run.py --configs mujoco_ppo_gsde ppo_bpo_zero --env.env_id ant --run.seed 0
@@ -100,16 +149,16 @@ python run.py --configs mujoco_ppo_gsde ppo_bpo_zero --env.env_id ant --run.seed
 
 ### Switching BPO hyperparameter settings
 
-The repo includes several ready-made BPO variants that mainly differ in **importance-weight clipping** (`clip_rho`, `clip_c`) and whether **trajectory clipping** is enabled (`clip_traj`). 
+The repo includes several ready-made BPO variants that mainly differ in **importance-weight clipping** (`clip_rho`, `clip_c`) and whether **trajectory clipping** is enabled (`clip_traj`).
 
 Common presets:
 
-* `ppo_bpo_zero` -> `clip_rho=1.5`, `clip_c=1.5`, plus "zero final norm" Q-head 
-* `ppo_bpo_zero1.0` -> `clip_rho=1.0`, `clip_c=1.0` 
-* `ppo_bpo_zero1.0_1.5` -> `clip_rho=1.5`, `clip_c=1.0` 
-* `ppo_bpo_zero1.0_1.4` -> `clip_rho=1.4`, `clip_c=1.0` 
-* `ppo_bpo_zero1.0_traj` -> `clip_rho=1.0`, `clip_c=1.0`, `clip_traj=True` 
-* `ppo_bpo_zero1.5_traj` -> `clip_rho=1.5`, `clip_c=1.5`, `clip_traj=True` 
+* `ppo_bpo_zero` -> `clip_rho=1.5`, `clip_c=1.5`, plus "zero final norm" Q-head
+* `ppo_bpo_zero1.0` -> `clip_rho=1.0`, `clip_c=1.0`
+* `ppo_bpo_zero1.0_1.5` -> `clip_rho=1.5`, `clip_c=1.0`
+* `ppo_bpo_zero1.0_1.4` -> `clip_rho=1.4`, `clip_c=1.0`
+* `ppo_bpo_zero1.0_traj` -> `clip_rho=1.0`, `clip_c=1.0`, `clip_traj=True`
+* `ppo_bpo_zero1.5_traj` -> `clip_rho=1.5`, `clip_c=1.5`, `clip_traj=True`
 
 So, to run the "rho/c = 1.0/1.0" setting you can do:
 
@@ -153,11 +202,33 @@ python run.py --configs mujoco_ppo_gsde ppo_bpo_zero \
   --run.seed 0
 ```
 
+## Tests
 
+With uv:
+
+```bash
+uv sync --group dev
+uv run pytest -v
+```
+
+With conda or pip, install the project, then pytest, and run from the repository root:
+
+```bash
+pip install -e .
+pip install "pytest>=9"
+pytest -v
+```
+
+The test suite is small and checks that the scientific stack imports, that each environment can be constructed and stepped, and that a tiny PPO or BPO training job can start.
+
+## Dependency sync
+
+`requirements.txt` must match `[project.dependencies]` in `pyproject.toml`. CI runs `scripts/check_requirements_sync.py` when either file changes. Locally:
+
+```bash
+python scripts/check_requirements_sync.py
+```
 
 ## License
 
 Our implementation of BPO is released under the MIT License.
-
-
-

@@ -9,13 +9,13 @@ from flax.training.train_state import TrainState
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
-from common.base_class import BaseAlgorithm, BaseJaxPolicy
+from bpo.common.base_class import BaseAlgorithm, BaseJaxPolicy
 from tqdm import tqdm
 from typing import Any, Optional, TypeVar, Union, Callable
-from common.wrappers import DummyVecWrapper, VecEnvWrapperBase, NormWrapper, VecNormWrapper, OneHotObsWrapper, FlattenDictObsWrapper, is_wrapped
-from common.buffers import RolloutBuffer
-from common.policies import PPOPolicy
-from common.metrics import RolloutLogger
+from bpo.common.wrappers import DummyVecWrapper, VecEnvWrapperBase, NormWrapper, VecNormWrapper, OneHotObsWrapper, FlattenDictObsWrapper, is_wrapped
+from bpo.common.buffers import RolloutBuffer
+from bpo.common.policies import PPOPolicy
+from bpo.common.metrics import RolloutLogger
 from tqdm.auto import tqdm
 
 @contextmanager

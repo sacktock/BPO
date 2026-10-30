@@ -15,9 +15,9 @@ from flax.linen.initializers import constant
 from flax.linen import initializers
 import tensorflow_probability.substrates.jax as tfp
 from typing import Callable, Optional, Sequence, Union, Tuple, Any
-from common.layers import Flatten, Identity, NatureCNN
+from bpo.common.layers import Flatten, Identity, NatureCNN
 from gymnasium import spaces
-from common.base_class import BaseJaxPolicy
+from bpo.common.base_class import BaseJaxPolicy
 
 tfd = tfp.distributions
 

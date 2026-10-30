@@ -11,10 +11,10 @@ import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
 from typing import Any, Optional, TypeVar, Union, Callable
-from common.base_class import BaseJaxPolicy
-from common.on_policy_algorithm import OnPolicyAlgorithm
-from common.policies import PPOPolicy
-from common.metrics import StatsLogger, Stats
+from bpo.common.base_class import BaseJaxPolicy
+from bpo.common.on_policy_algorithm import OnPolicyAlgorithm
+from bpo.common.policies import PPOPolicy
+from bpo.common.metrics import StatsLogger, Stats
 from tqdm.auto import tqdm
 
 class PPO(OnPolicyAlgorithm):

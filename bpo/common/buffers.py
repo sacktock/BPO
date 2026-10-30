@@ -9,7 +9,7 @@ import jax.random as jr
 import jax.numpy as jnp
 from jax import jit
 from functools import partial
-from common.symlog import *
+from bpo.common.symlog import *
 
 class RolloutBuffer():
 
