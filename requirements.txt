@@ -1,6 +1,7 @@
 gymnasium[mujoco]>=1.1.1
 tensorflow-cpu>=2.18.0,<2.19.0
 tensorflow-probability==0.25.0
+tf-keras>=2.18.0,<2.19.0
 numpy==1.26.4
 tensorboard>=2.18.0
 tqdm>=4.66.5
