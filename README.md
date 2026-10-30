@@ -14,9 +14,7 @@ The repository provide the official implementation of **Behaviour Policy Optimiz
 
 #### Prequisites
 
-Python 3.8+ is required but we recommend Python 3.10 (later Python versions may not be supported).
-
-#### Installation with conda 
+Python 3.10 is required.
 
 #### Installation with conda 
 - Install conda, e.g., via [anaconda](https://anaconda.org/channels/anaconda/packages/conda/overview).
@@ -30,7 +28,7 @@ cd BPO
 conda env create --name bpo --file conda-environment.yaml
 conda activate bpo
 ```
-- Install dependencies:
+- Install the project and its dependencies:
 ```bash
 pip install -r requirements.txt
 ```
@@ -146,7 +144,7 @@ The verbosity level can be changed via a command-line override:
 --run.verbose <level>
 ```
 
-SImilarly, you can also override any nested field directly from the command line (after configs are merged). For example, to keep `ppo_bpo_zero` but change the clipping thresholds:
+Similarly, you can also override any nested field directly from the command line (after configs are merged). For example, to keep `ppo_bpo_zero` but change the clipping thresholds:
 
 ```bash
 python run.py --configs mujoco_ppo_gsde ppo_bpo_zero \
@@ -159,7 +157,7 @@ python run.py --configs mujoco_ppo_gsde ppo_bpo_zero \
 
 ## License
 
-Out implementation of BPO is released under the MIT License.
+Our implementation of BPO is released under the MIT License.
 
 
 
