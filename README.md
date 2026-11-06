@@ -1,6 +1,6 @@
 # Behaviour Policy Optimization (BPO)
 
-The repository provide the official implementation of **Behaviour Policy Optimization (BPO)**, an off-policy extension of the classic **Proximal Policy Optimization (PPO)** algorithm with provable variance reduction. The full details can be found in:
+This repository provides the official implementation of **Behaviour Policy Optimization (BPO)**, an off-policy extension of the classic **Proximal Policy Optimization (PPO)** algorithm with provable variance reduction. The full details can be found in:
 
 > **Behaviour Policy Optimization: Provably Lower Variance Return Estimates for Off-Policy Reinforcement Learning**
 > Alexander W. Goodall, Edwin Hamel-De le Court, Francesco Belardinelli
